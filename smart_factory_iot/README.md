@@ -20,3 +20,5 @@ This narrative allows us to naturally showcase Databricks features as solutions 
 ## Part 1: The Setup - Generating our Data
 
 **(Talk Track)**: "Every great data solution starts with data. In our Smart Factory, we have sensors constantly emitting JSON data into our cloud storage. Let's simulate that. I'll use a simple Python script right here in a Databricks notebook to generate our initial batch of sensor readings and land them in our raw data location."
+
+Run the code in `src/data_generation.ipynb`
