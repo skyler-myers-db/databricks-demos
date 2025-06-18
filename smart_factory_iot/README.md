@@ -31,9 +31,8 @@ Run the code in `src/data_generation.ipynb`
 
 1. Go to the Workflows tab in Databricks, select Delta Live Tables, and click Create Pipeline.
 2. Configure the pipeline:
-  * **Pipeline Name**: Smart_Factory_Pipeline
-  * **Pipeline mode**: Triggered
-  * **Source Code**: Create a new notebook and paste the code below into it.
-  * **Storage location**: Enter a path for DLT to store its metadata, e.g., [YOUR_STORAGE_PATH]/dlt_storage/smart_factory
-  * **Target schema**: smart_factory_db (This is where the final tables will be published).
+  * **Pipeline Name**: `Smart_Factory_Pipeline`
+  * **Pipeline mode**: `Triggered`
+  * **Source Code**: Use the `dlt_pipeline.py` file
+  * **Target schema**: `smart_factory` (This is where the final tables will be published).
 3. Click Create. Do not run it yet.
