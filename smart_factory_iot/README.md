@@ -45,3 +45,30 @@ Run the code in `src/data_generation.ipynb`
   * The Gold table creates a business-level aggregate: the hourly average and max temperature for each device. This is what our analysts will use."
 2. **(Start the pipeline)**: Now, click the Start button on the DLT pipeline UI.
 3. **(Explain the DLT Graph)**: As it runs, a graph will appear. "This is one of the key monitoring features of DLT. You get a real-time, visual DAG of your pipeline. We can see the data flowing from Bronze to Silver to Gold. If I click on a table, I can see the record counts and, importantly, the data quality metrics from the expectations we defined."
+
+## Part 3: Demonstrating Fault Tolerance
+
+**(Talk Track)**: "Now for the critical part: what happens when things go wrong? A production pipeline must be fault-tolerant. Let's simulate two common issues: late-arriving data and schema changes."
+
+**Action 1: Simulate New Data (Demonstrates Checkpointing)**
+
+1. Run the original data generation notebook again
+   
+**(Talk Track)**: "I've just dropped new files into our landing zone. Because this is a Triggered pipeline, it's not running right now. But DLT uses checkpointing to keep track of exactly which files it has processed. The next time the pipeline runs, it will automatically pick up only the new files, guaranteeing exactly-once processing without any manual intervention."
+
+**Action 2: Simulate a Schema Change (Demonstrates Schema Evolution)**
+
+1. Run the `data_generation_schema_change.py` file to generate a few more batches. This new data now has the `humidity_percent` field.
+
+**(Talk Track & Action):**
+
+1. "A data team's nightmare is an upstream schema change breaking the pipeline. Let's add a new humidity field to our source data and see what happens."
+2. Go back to the DLT Pipeline UI and click Start again.
+3. "Watch the pipeline graph. Auto Loader, which we configured in our Bronze table, detects this new column. It seamlessly evolves the schema of the table without failing the pipeline. The new humidity_percent column will now flow through to our Bronze table. This automatic schema evolution is a massive feature for operational stability."
+
+## Part 4: Monitoring & Alerting
+
+**(Talk Track)**: "Fault tolerance is about automatic recovery. Monitoring and alerting are about proactive awareness. Databricks provides tools for every persona, from engineers to analysts."
+
+**Action 1: Monitoring with Dashboards (for the Analyst)**
+
