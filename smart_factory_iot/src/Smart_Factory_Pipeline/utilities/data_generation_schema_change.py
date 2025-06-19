@@ -1,5 +1,3 @@
-%pip install loguru --quiet
-
 import json
 import random
 import time
