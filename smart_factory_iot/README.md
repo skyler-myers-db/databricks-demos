@@ -36,3 +36,12 @@ Run the code in `src/data_generation.ipynb`
   * **Source Code**: Use the `dlt_pipeline.py` file
   * **Target schema**: `smart_factory` (This is where the final tables will be published).
 3. Click Create. Do not run it yet.
+
+**(Talk Track & Action)**:
+
+1. **(Point to the DLT code)**: "Here we define our pipeline in three stages: Bronze, Silver, and Gold.
+  * The Bronze table uses Auto Loader to incrementally pull new JSON files from our landing zone. It automatically infers the schema.
+  * The Silver table is where we enforce quality. Notice the `@dlt.expect` rules. We're ensuring every record has a `device_id`, and we're flagging records with temperatures over 40 degrees. This is data quality built directly into the pipeline.
+  * The Gold table creates a business-level aggregate: the hourly average and max temperature for each device. This is what our analysts will use."
+2. **(Start the pipeline)**: Now, click the Start button on the DLT pipeline UI.
+3. **(Explain the DLT Graph)**: As it runs, a graph will appear. "This is one of the key monitoring features of DLT. You get a real-time, visual DAG of your pipeline. We can see the data flowing from Bronze to Silver to Gold. If I click on a table, I can see the record counts and, importantly, the data quality metrics from the expectations we defined."
