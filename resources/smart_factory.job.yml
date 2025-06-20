@@ -1,0 +1,73 @@
+# The main job for smart_factory.
+resources:
+  jobs:
+    demo_smart_factory:
+      name: demo_smart_factory
+      tasks:
+        - task_key: error_check
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.parameters.run_type}}"
+            right: error
+        - task_key: ingest_error_data
+          depends_on:
+            - task_key: error_check
+              outcome: "true"
+          spark_python_task:
+            python_file: smart_factory_iot/src/Smart_Factory_Pipeline/utilities/data_generation_trigger_event.py
+            source: GIT
+          environment_key: ingest_initial_data_environment
+        - task_key: schema_check
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.parameters.run_type}}"
+            right: change_schema
+        - task_key: ingest_changed_schema
+          depends_on:
+            - task_key: schema_check
+              outcome: "true"
+          spark_python_task:
+            python_file: smart_factory_iot/src/Smart_Factory_Pipeline/utilities/data_generation_schema_change.py
+            source: GIT
+          environment_key: ingest_initial_data_environment
+        - task_key: standard_check
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.parameters.run_type}}"
+            right: standard
+        - task_key: ingest_initial_data
+          depends_on:
+            - task_key: standard_check
+              outcome: "true"
+          spark_python_task:
+            python_file: smart_factory_iot/src/Smart_Factory_Pipeline/utilities/data_generation.py
+            source: GIT
+          environment_key: ingest_initial_data_environment
+        - task_key: ingest_factory_data
+          depends_on:
+            - task_key: ingest_initial_data
+            - task_key: ingest_changed_schema
+            - task_key: ingest_error_data
+          run_if: AT_LEAST_ONE_SUCCESS
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.pipeline_smart_factory_pipeline.id}
+            full_refresh: false
+      git_source:
+        git_url: https://github.com/skyler-myers-db/databricks-demos
+        git_provider: gitHub
+        git_branch: smart_factory
+      tags:
+        owner: skyler
+        purpose: demo
+      queue:
+        enabled: true
+      parameters:
+        - name: run_type
+          default: standard
+      environments:
+        - environment_key: ingest_initial_data_environment
+          spec:
+            client: "3"
+            dependencies:
+              - loguru
+      performance_target: PERFORMANCE_OPTIMIZED
