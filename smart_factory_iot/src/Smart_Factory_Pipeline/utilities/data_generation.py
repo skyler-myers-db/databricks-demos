@@ -51,15 +51,16 @@ def generate_sensor_reading(device_id):
         temp = round(random.uniform(40.0, 45.0), 2)
         vibration = round(random.uniform(0.5, 1.2), 4)
 
-    utc_time = datetime.utcnow() - timedelta(seconds=random.randint(0, 60))
-    est_time = utc_time.replace(tzinfo=pytz.utc).astimezone(pytz.timezone("US/Eastern"))
+    # Introduce a 1% chance of a null device_id for quarantine demo
+    final_device_id = device_id if random.random() > 0.01 else None
 
     return {
-        "device_id": device_id,
-        "timestamp": est_time.isoformat(),
+        "device_id": final_device_id,
+        "timestamp": (datetime.utcnow() - timedelta(seconds=random.randint(0, 60))).isoformat(),
         "temperature_celsius": temp,
         "vibration_hz": vibration,
-        "location": "Factory Floor A" if "MFG-A" in device_id else "Factory Floor B",
+        "humidity_percent": round(random.uniform(30.0, 50.0), 1),
+        "location": "Factory Floor A" if "MFG-A" in device_id else "Factory Floor B"
     }
 
 def generate_and_save_batch(batch_size=100):

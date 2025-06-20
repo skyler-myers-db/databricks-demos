@@ -46,6 +46,28 @@ def silver_cleaned_sensors():
         )
     )
 
+# --- Quarantine Table for invalid data ---
+# This table captures records that were dropped from the silver table.
+# The rule here is the INVERSE of the silver table's drop rule.
+@dlt.table(
+    name="silver_quarantined_sensors",
+    comment="Records that failed validation, e.g., missing device_id."
+)
+@dlt.expect_or_drop("invalid_device_id", "device_id IS NULL") # We explicitly capture the bad records
+def silver_quarantined_sensors():
+  return (
+    dlt.read_stream("bronze_sensor_readings")
+        .select(
+            "device_id",
+            col("timestamp").cast("timestamp").alias("event_timestamp"),
+            "temperature_celsius",
+            "vibration_hz",
+            "location",
+            "ingestion_timestamp",
+            "source_file"
+        )
+    )
+
 # --- Gold Layer: Business Aggregates ---
 # This table provides a high-level view for analysts and business users.
 @dlt.table(

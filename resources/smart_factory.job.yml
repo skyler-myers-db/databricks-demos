@@ -1,8 +1,8 @@
-# The main job for smart_factory.
 resources:
   jobs:
-    demo_smart_factory:
-      name: demo_smart_factory
+    demo_smart_factory_landing:
+      name: demo_smart_factory_landing
+      max_concurrent_runs: 4
       tasks:
         - task_key: error_check
           condition_task:
@@ -43,20 +43,12 @@ resources:
             python_file: smart_factory_iot/src/Smart_Factory_Pipeline/utilities/data_generation.py
             source: GIT
           environment_key: ingest_initial_data_environment
-        - task_key: ingest_factory_data
-          depends_on:
-            - task_key: ingest_initial_data
-            - task_key: ingest_changed_schema
-            - task_key: ingest_error_data
-          run_if: AT_LEAST_ONE_SUCCESS
-          pipeline_task:
-            pipeline_id: ${resources.pipelines.pipeline_smart_factory_pipeline.id}
-            full_refresh: false
       git_source:
         git_url: https://github.com/skyler-myers-db/databricks-demos
         git_provider: gitHub
         git_branch: smart_factory
       tags:
+        dev: skyler
         owner: skyler
         purpose: demo
       queue:
@@ -64,10 +56,54 @@ resources:
       parameters:
         - name: run_type
           default: standard
+        - name: landing_dir
+          default: /Volumes/demos/smart_factory/iot_landing
+      edit_mode: EDITABLE
+      deployment:
+        kind: BUNDLE
+        metadata_file_path: /Workspace/Users/skyler@entrada.ai/.bundle/smart_factory/dev/state/metadata.json
       environments:
         - environment_key: ingest_initial_data_environment
           spec:
             client: "3"
             dependencies:
               - loguru
+      performance_target: PERFORMANCE_OPTIMIZED
+
+    demo_smart_factory_pipeline:
+      name: demo_smart_factory_pipeline
+      email_notifications:
+        on_start:
+          - skyler@entrada.ai
+        on_success:
+          - skyler@entrada.ai
+        on_failure:
+          - skyler@entrada.ai
+        no_alert_for_skipped_runs: true
+      webhook_notifications:
+        on_start:
+          - id: ece8880a-5058-4bd2-a0ee-3b6eaade0206
+        on_success:
+          - id: ece8880a-5058-4bd2-a0ee-3b6eaade0206
+        on_failure:
+          - id: ece8880a-5058-4bd2-a0ee-3b6eaade0206
+      notification_settings:
+        no_alert_for_skipped_runs: true
+        no_alert_for_canceled_runs: true
+      trigger:
+        pause_status: UNPAUSED
+        file_arrival:
+          url: /Volumes/demos/smart_factory/iot_landing/
+      tasks:
+        - task_key: run_dlt_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.pipeline_smart_factory_pipeline.id}
+            full_refresh: false
+      tags:
+        owner: skyler
+        purpose: demo
+      queue:
+        enabled: true
+      performance_target: PERFORMANCE_OPTIMIZED
+
       performance_target: PERFORMANCE_OPTIMIZED
