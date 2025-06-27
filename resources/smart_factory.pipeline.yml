@@ -1,0 +1,24 @@
+# The main pipeline for smart_factory
+resources:
+  pipelines:
+    pipeline_smart_factory_pipeline:
+      name: Smart_Factory_Pipeline
+      configuration:
+        spark.sql.shuffle.partitions: auto
+      libraries:
+        - glob:
+            include: /Workspace/Users/skyler@entrada.ai/Databricks-demos/smart_factory_iot/src/Smart_Factory_Pipeline/transformations/**
+      schema: smart_factory
+      development: true
+      photon: true
+      channel: PREVIEW
+      catalog: demos
+      serverless: true
+      tags:
+        purpose: demo
+        owner: skyler
+      event_log:
+        name: event_log
+        schema: smart_factory
+        catalog: demos
+      root_path: /Workspace/Users/skyler@entrada.ai/Databricks-demos/smart_factory_iot/src/Smart_Factory_Pipeline
