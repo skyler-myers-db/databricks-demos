@@ -1,0 +1,33 @@
+{
+  "evaluation": {
+    "source": {
+      "name": "max_temp",
+      "display": "max_temp",
+      "aggregation": "MAX"
+    },
+    "comparison_operator": "GREATER_THAN_OR_EQUAL",
+    "threshold": {
+      "value": {
+        "double_value": 45.0
+      }
+    },
+    "notification": {
+      "retrigger_seconds": 0,
+      "notify_on_ok": false
+    }
+  },
+  "schedule": {
+    "quartz_cron_schedule": "48 0/2 * * * ?",
+    "timezone_id": "America/New_York"
+  },
+  "query_lines": [
+    "-- This query identifies devices with a recent max temperature over 40",
+    "SELECT",
+    "  device_id,",
+    "  window.start as hour,",
+    "  max_temp::FLOAT",
+    "FROM demos.smart_factory.gold_hourly_device_summary",
+    "WHERE max_temp >= 40.0",
+    "AND window.start >= now() - INTERVAL '3' HOUR -- check last 3 hours"
+  ]
+}
