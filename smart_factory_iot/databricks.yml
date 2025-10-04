@@ -2,7 +2,7 @@
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
   name: smart_factory
-  uuid: bb407929-d751-4b18-b0b7-e4690d30656c
+  uuid: "{{secrets/demos/client_id}}"
 
 include:
   - resources/*.yml
@@ -17,12 +17,12 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://dbc-3aa503a9-4fa8.cloud.databricks.com
+      host: "{{secrets/demos/host}}"
 
   # prod:
   #   mode: production
   #   workspace:
-  #     host: https://dbc-3aa503a9-4fa8.cloud.databricks.com
+  #     host: "{{secrets/demos/host}}"
   #     # We explicitly deploy to /Workspace/Users/skyler@entrada.ai to make sure we only have a single copy.
   #     root_path: /Workspace/Users/skyler@entrada.ai/.bundle/${bundle.name}/${bundle.target}
   #   permissions:

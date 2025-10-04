@@ -1,0 +1,30 @@
+resources:
+  model_serving_endpoints:
+    se_customers:
+      name: 'customers'
+      config:
+        served_entities:
+          - entity_name: 'demos.data_api_serving.customers_api'
+            entity_version: '1'
+            workload_size: 'Small'
+            scale_to_zero_enabled: true
+            environment_vars:
+              DATABRICKS_SERVER_HOSTNAME: "{{secrets/demos/host}}"
+              DATABRICKS_HTTP_PATH: "{{secrets/demos/warehouse_http}}"
+              DATABRICKS_AUTH_TYPE: "oauth"
+              DATABRICKS_CLIENT_ID: "{{secrets/demos/client_id}}"
+              DATABRICKS_CLIENT_SECRET: "{{secrets/demos/client_secret}}"
+              DATABRICKS_TOKEN: "{{secrets/demos/token}}"
+              DATA_CATALOG: "demos"
+              DATA_SCHEMA: "data_api_serving"
+              DATA_TABLE: "customer_details"
+              MAX_PAGE_SIZE: "200"
+        traffic_config:
+          routes:
+            - served_model_name: 'customers_api-1'
+              traffic_percentage: 100
+      tags:
+        - key: 'demo'
+          value: 'api'
+        - key: 'devloper'
+          value: 'skyler'

@@ -1,0 +1,31 @@
+# This is a Databricks asset bundle definition for smart_factory.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: data_api_serving
+
+include:
+  - resources/*.yml
+  - resources/*/*.yml
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: production
+
+    default: true
+    workspace:
+      profile: DEFAULT
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - group_name: users
+        level: CAN_MANAGE
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
+
+  # prod:
+  #   mode: production
+  #   workspace:
+  #     host: "{{secrets/demos/host}}"

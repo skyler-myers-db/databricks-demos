@@ -1,0 +1,23 @@
+resources:
+  pipelines:
+    pl_customers:
+      name: pl_customers
+      libraries:
+        - glob:
+            include: transformations/**
+      serverless: true
+      tags:
+        demo: api
+        developer: skyler
+      event_log:
+        name: event_log_customers
+        schema: data_api_serving
+        catalog: demos
+      photon: true
+      channel: PREVIEW
+      catalog: demos
+      schema: data_api_serving
+      root_path: .
+      environment:
+        dependencies:
+          - dbldatagen
