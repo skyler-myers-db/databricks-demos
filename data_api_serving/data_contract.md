@@ -37,7 +37,7 @@ Output schema:
   "has_more": "boolean"
 }
 ```
-JSON Schema for filters_json (draft 2020‑12):
+JSON Schema for filters_json (draft 2020-12):
 ```json
 {
   "$id": "https://example.com/schemas/customers.filters.json",
