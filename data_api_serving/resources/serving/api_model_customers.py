@@ -83,17 +83,6 @@ def _jsonable(v: Any) -> Any:
 
 
 def _jsonify_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    def _walk(x):
-        if isinstance(x, dict):
-            return {k: _walk(v) for k, v in x.items()}
-        if isinstance(x, list):
-            return [_walk(v) for v in x]
-        return _json_default(x)
-
-    return [_walk(it) for it in items]
-
-
-def _jsonify_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [_jsonable(it) for it in items]
 
 
