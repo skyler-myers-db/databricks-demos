@@ -180,9 +180,12 @@ def _build_keyset_where(
     With explicit CASTs so strings compare as native types.
     """
     if len(keys) != len(after_vals):
+        LOG.error(
+            "Length mismatch in _build_keyset_where: keys (%d) != after_vals (%d). keys=%s, after_vals=%s",
+            len(keys), len(after_vals), keys, after_vals
+        )
         raise ValueError(
-            f"Length mismatch in _build_keyset_where: keys ({len(keys)}) != after_vals ({len(after_vals)}). "
-            f"keys={keys}, after_vals={after_vals}"
+            "Length mismatch in _build_keyset_where: keys and after_vals must have the same length."
         )
     clauses = []
     params: Dict[str, Any] = {}
