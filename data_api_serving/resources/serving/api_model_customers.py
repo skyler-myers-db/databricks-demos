@@ -10,7 +10,7 @@ from mlflow.models import set_model
 LOG = logging.getLogger("api")
 LOG.setLevel(logging.INFO)
 
-CATALOG = os.getenv("DATA_CATALOG", "demo")
+CATALOG = os.getenv("DATA_CATALOG", "demos")
 SCHEMA = os.getenv("DATA_SCHEMA", "data_api_serving")
 TABLE = os.getenv("DATA_TABLE", "customer_details")
 MAX_LIMIT = int(os.getenv("MAX_PAGE_SIZE", "200"))
