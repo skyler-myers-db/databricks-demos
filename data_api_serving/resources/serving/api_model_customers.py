@@ -179,7 +179,11 @@ def _build_keyset_where(
       (modified_ts < :k0) OR (modified_ts = :k0 AND customer_id < :k1)
     With explicit CASTs so strings compare as native types.
     """
-    assert len(keys) == len(after_vals)
+    if len(keys) != len(after_vals):
+        raise ValueError(
+            f"Length mismatch in _build_keyset_where: keys ({len(keys)}) != after_vals ({len(after_vals)}). "
+            f"keys={keys}, after_vals={after_vals}"
+        )
     clauses = []
     params: Dict[str, Any] = {}
     for i in range(len(keys)):
