@@ -9,7 +9,7 @@ TOKEN = dbutils.secrets.get(
     "token",
 )  # a PAT just to call Serving; not used by the model code
 ENDPOINT = "customers"
-URL = f"https://{HOST}/serving-endpoints/{ENDPOINT}/invocations"
+URL = f"https://{HOST.replace('https://', '')}/serving-endpoints/{ENDPOINT}/invocations"
 headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
 
 
