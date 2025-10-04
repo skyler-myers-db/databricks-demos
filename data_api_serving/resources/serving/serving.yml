@@ -26,5 +26,5 @@ resources:
       tags:
         - key: 'demo'
           value: 'api'
-        - key: 'devloper'
+        - key: 'developer'
           value: 'skyler'
