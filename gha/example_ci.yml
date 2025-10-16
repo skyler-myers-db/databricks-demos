@@ -1,0 +1,108 @@
+name: Databricks CI
+
+on:
+  # PRs targeting any branch EXCEPT main
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ['**']
+    branches-ignore: ['main']
+  # The actual merge commit that lands on main
+  push:
+    branches: ['main']
+
+# Minimal permissions: we need OIDC id tokens and read access to the repo.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # --- Figure out which Databricks target/environment to use for this run ---
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      env_name: ${{ steps.out.outputs.env_name }}
+      bundle_target: ${{ steps.out.outputs.bundle_target }}
+      is_fork: ${{ steps.out.outputs.is_fork }}
+    steps:
+      - name: Derive environment & bundle target from event/branch
+        id: out
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+          REF_NAME: ${{ github.ref_name }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork || 'false' }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "push" ] && [ "${REF_NAME}" = "main" ]; then
+            ENV_NAME="prod"
+            BUNDLE_TARGET="prod"
+          else
+            # Adjust mapping here to fit your branch model
+            case "${BASE_REF}" in
+              main)    ENV_NAME="prod";    BUNDLE_TARGET="prod" ;;
+              staging|stage|preprod|release/*) ENV_NAME="staging"; BUNDLE_TARGET="staging" ;;
+              dev|develop|development)     ENV_NAME="dev";     BUNDLE_TARGET="dev" ;;
+              *)       ENV_NAME="dev";     BUNDLE_TARGET="dev" ;;  # sensible default
+            esac
+          fi
+          echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+          echo "bundle_target=${BUNDLE_TARGET}" >> "$GITHUB_OUTPUT"
+          echo "is_fork=${IS_FORK}" >> "$GITHUB_OUTPUT"
+
+  # --- Validate, plan, and deploy (skip forks for safety) ---
+  deploy:
+    name: Validate & Deploy (${{ needs.prepare.outputs.env_name }})
+    needs: prepare
+    if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && needs.prepare.outputs.is_fork != 'true') }}
+    runs-on: ubuntu-latest
+
+    # Bind this job to an Environment with the same name (dev/staging/prod).
+    # This also shapes the GitHub OIDC token's "subject" for your federation policy.
+    environment: ${{ needs.prepare.outputs.env_name }}
+
+    # Serialize per environment to avoid overlapping deploys to the same workspace.
+    concurrency:
+      group: databricks-deploy-${{ needs.prepare.outputs.env_name }}
+      cancel-in-progress: false
+
+    # Authentication: OIDC federation to a Databricks service principal.
+    # DATABRICKS_HOST is easiest to store as a per Environment variable.
+    # DATABRICKS_CLIENT_ID can be a repo-level variable (non secret).
+    env:
+      DATABRICKS_AUTH_TYPE: github-oidc
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_SP_CLIENT_ID }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install latest Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Show CLI version
+        run: databricks version
+
+      - name: Validate bundle (fail fast on errors)
+        run: databricks bundle validate -t "${{ needs.prepare.outputs.bundle_target }}"
+
+      - name: Plan bundle changes (preview)
+        run: databricks bundle plan -t "${{ needs.prepare.outputs.bundle_target }}"
+
+      # Optional guardrail: block destructive plans (uncomment to enable)
+      # - name: Fail if plan contains destroy
+      #   run: |
+      #     databricks bundle plan -t "${{ needs.prepare.outputs.bundle_target }}" --output json > plan.json
+      #     jq -e '.actions[] | select(.op=="destroy")' plan.json >/dev/null && { echo "Destructive changes detected."; exit 1; } || true
+
+      - name: Deploy bundle (non-interactive)
+        run: databricks bundle deploy -t "${{ needs.prepare.outputs.bundle_target }}" --auto-approve --fail-on-active-runs
+
+  # --- Clear signal in PRs from forks (no secrets/oidc) ---
+  skip_forks:
+    name: Skip deploy for forks
+    needs: prepare
+    if: ${{ github.event_name == 'pull_request' && needs.prepare.outputs.is_fork == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "PR comes from a fork; skipping Databricks deploy for security."
