@@ -1,0 +1,23 @@
+# (top-level)
+bundle:
+  name: my_bundle
+
+targets:
+  dev:
+    workspace:
+      host: https://dbc-dev-123.cloud.databricks.com
+    # optional: git branch guard so dev only deploys from "dev" branches
+    # git:
+    #   branch: dev
+
+  staging:
+    workspace:
+      host: https://dbc-stg-123.cloud.databricks.com
+    # git:
+    #   branch: staging
+
+  prod:
+    workspace:
+      host: https://dbc-prod-123.cloud.databricks.com
+    # git:
+    #   branch: main
