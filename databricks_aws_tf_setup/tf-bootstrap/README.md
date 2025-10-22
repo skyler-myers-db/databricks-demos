@@ -39,4 +39,4 @@ It supports two target configurations:
 └── outputs.tf                 # Useful outputs
 ```
 
-> **Note on Bundles vs Terraform:** Wherever possible, **workspace objects** (jobs, pipelines, warehouses, schemas, volumes, models, dashboards, secret scopes) are expressed via **DAB**. Terraform is used for **cloud & account** primitives (VPC, IAM, S3, MWS workspace/UC, PrivateLink, etc.) or where DAB doesn’t yet cover a feature. See `bundles/platform/databricks.yml`. citeturn8view0
+> **Note on Bundles vs Terraform:** Wherever possible, **workspace objects** (jobs, pipelines, warehouses, schemas, volumes, models, dashboards, secret scopes) are expressed via **DAB**. Terraform is used for **cloud & account** primitives (VPC, IAM, S3, MWS workspace/UC, PrivateLink, etc.) or where DAB doesn’t yet cover a feature. See `bundles/platform/databricks.yml`
