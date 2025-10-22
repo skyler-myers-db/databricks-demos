@@ -1,0 +1,26 @@
+project_name = "entradaai-sim"
+aws_region   = "us-west-2"
+
+databricks_account_id    = "<ACCOUNT_ID>"
+databricks_client_id     = "<OAUTH_CLIENT_ID>"
+databricks_client_secret = "<OAUTH_CLIENT_SECRET>"
+
+workspace_name        = "sim-ws"
+workspace_admin_group = "account-admins"
+
+vpc_cidr             = "10.10.0.0/16"
+private_subnet_cidrs = ["10.10.10.0/24","10.10.11.0/24"]
+public_subnet_cidrs  = ["10.10.100.0/24"]
+endpoint_subnet_cidrs= ["10.10.200.0/28"]
+
+root_bucket_name = "entrada-sim-root-<unique>"
+log_bucket_name  = "entrada-sim-logs-<unique>"
+kms_key_alias    = "alias/sim/databricks"
+
+# Enterprise-only fields intentionally omitted
+
+tags = {
+  Project = "EntradaAI"
+  Env     = "sim"
+  Owner   = "skyler"
+}
