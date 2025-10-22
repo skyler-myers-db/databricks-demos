@@ -1,0 +1,55 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    paths:
+      - "**/*.tf"
+      - ".github/workflows/terraform.yml"
+  pull_request:
+    paths:
+      - "**/*.tf"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: envs/premium-sim
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+      - name: Terraform init
+        run: terraform init
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: tfsec (static analysis)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: true
+      - name: Terraform plan
+        run: terraform plan -input=false
+        env:
+          TF_VAR_databricks_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+          TF_VAR_databricks_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          TF_VAR_databricks_client_secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Terraform apply (on main only, manual)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_databricks_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+          TF_VAR_databricks_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          TF_VAR_databricks_client_secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}

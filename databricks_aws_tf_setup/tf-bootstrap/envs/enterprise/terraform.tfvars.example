@@ -1,0 +1,45 @@
+# ---- Required IDs & OAuth ----
+project_name = "entradaai-client1"
+aws_region   = "us-west-2"
+
+databricks_account_id    = "<ACCOUNT_ID>"
+databricks_client_id     = "<OAUTH_CLIENT_ID>"
+databricks_client_secret = "<OAUTH_CLIENT_SECRET>"
+
+# ---- Workspace ----
+workspace_name        = "client1-prod"
+workspace_admin_group = "account-admins"
+
+# ---- Networking ----
+vpc_cidr             = "10.20.0.0/16"
+private_subnet_cidrs = ["10.20.10.0/24","10.20.11.0/24"]
+public_subnet_cidrs  = ["10.20.100.0/24"]
+endpoint_subnet_cidrs= ["10.20.200.0/28"]
+
+# ---- Storage ----
+root_bucket_name = "client1-prod-root-<unique>"
+log_bucket_name  = "client1-prod-logs-<unique>"
+kms_key_alias    = "alias/client1/databricks"
+
+# ---- Front-end PrivateLink DNS ----
+pl_phz_domain            = "privatelink.internal"
+workspace_deployment_name= "oregon.cloud.databricks.com"
+workspace_dp_cname       = "dbc-dp-<workspace-id>.cloud.databricks.com"
+workspace_url            = "oregon.cloud.databricks.com"
+frontend_vpce_ips        = ["10.20.200.10","10.20.200.11"]
+
+# ---- Federation sample (optional) ----
+federation_example_enabled = false
+federation_conn_type  = "POSTGRESQL"
+federation_conn_host  = "pg.example.internal"
+federation_conn_port  = 5432
+federation_conn_user  = "readonly"
+federation_conn_password = "<use CI/CD secret or SSM>"
+federation_database   = "salesdb"
+
+# ---- Tags ----
+tags = {
+  Project = "EntradaAI"
+  Env     = "prod"
+  Owner   = "platform"
+}

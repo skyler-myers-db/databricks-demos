@@ -1,0 +1,31 @@
+name: Bundles CI/CD
+
+on:
+  push:
+    paths:
+      - 'bundles/**'
+      - '.github/workflows/bundles.yml'
+  pull_request:
+    paths:
+      - 'bundles/**'
+
+jobs:
+  validate-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@v2
+      - name: Validate bundle
+        working-directory: bundles/platform
+        run: databricks bundle validate
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      - name: Deploy bundle (main only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: bundles/platform
+        run: databricks bundle deploy
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
