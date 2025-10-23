@@ -90,3 +90,46 @@ variable "aws_acc_switch_role" {
   default     = "OrganizationAccountAccessRole"
   description = "The name of the role to assume in the new AWS account"
 }
+
+# ============================================================================
+# Networking Module Variables
+# ============================================================================
+
+variable "vpc_cidr_block" {
+  type        = string
+  default     = "10.0.0.0/24"
+  description = "CIDR block for VPC. /24 for demo (256 IPs), use /16-/20 for production. Must support minimum /26 subnets for Databricks."
+}
+
+variable "subnet_count" {
+  type        = number
+  default     = 2
+  description = "Number of private/public subnet pairs to create (minimum 2 for Databricks HA)."
+
+  validation {
+    condition     = var.subnet_count >= 2 && var.subnet_count <= 6
+    error_message = "Subnet count must be between 2 and 6 for optimal AZ distribution."
+  }
+}
+
+variable "private_subnet_newbits" {
+  type        = number
+  default     = 2
+  description = "Bits to add to VPC CIDR for private subnets. 2 = /26 subnets from /24 VPC (64 IPs, Databricks minimum requirement)."
+
+  validation {
+    condition     = var.private_subnet_newbits >= 2 && var.private_subnet_newbits <= 8
+    error_message = "Private subnet newbits must be between 2 and 8 to ensure valid subnet sizes."
+  }
+}
+
+variable "public_subnet_newbits" {
+  type        = number
+  default     = 4
+  description = "Bits to add to VPC CIDR for public subnets. 4 = /28 subnets from /24 VPC (16 IPs, sufficient for NAT Gateways only)."
+
+  validation {
+    condition     = var.public_subnet_newbits >= 3 && var.public_subnet_newbits <= 8
+    error_message = "Public subnet newbits must be between 3 and 8 to ensure valid subnet sizes."
+  }
+}

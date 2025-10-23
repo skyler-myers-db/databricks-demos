@@ -84,7 +84,7 @@ This Terraform configuration implements **production-ready, security-hardened ne
 ### 4. **Production vs. Demo Sizing**
 | Resource        | Demo (Current)       | Production Typical        |
 | --------------- | -------------------- | ------------------------- |
-| VPC CIDR        | /24 (256 IPs)        | /16 (65,536 IPs)          |
+| VPC CIDR        | /24 (256 IPs)        | /17 (65,536 IPs)          |
 | Private Subnets | /26 (64 IPs)         | /18-/20 (4k-16k IPs)      |
 | Public Subnets  | /28 (16 IPs)         | /24 (256 IPs)             |
 | NAT GW Count    | 2                    | 2-3                       |
