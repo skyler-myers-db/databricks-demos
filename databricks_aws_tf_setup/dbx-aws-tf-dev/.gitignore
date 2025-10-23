@@ -1,0 +1,26 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+
+# Python / misc
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local env
+.env
+.envrc
+.secrets/
+
+# Bundles
+bundles/**/.databricks
