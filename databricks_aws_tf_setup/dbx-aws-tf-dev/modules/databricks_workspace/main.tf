@@ -74,8 +74,8 @@ resource "databricks_mws_workspaces" "workspace" {
   aws_region = var.aws_region
 
   # Workspace naming
-  workspace_name  = var.workspace_name  # User-facing display name
-  deployment_name = var.deployment_name # Infrastructure name (globally unique)
+  workspace_name = var.workspace_name # User-facing display name
+  # deployment_name = var.deployment_name # Commented: requires account-level deployment name prefix configuration
 
   # Infrastructure dependencies - IDs from previous modules
   credentials_id           = var.credentials_id           # From databricks_storage_config module (mws_credentials)
@@ -196,11 +196,6 @@ output "aws_region" {
   value       = databricks_mws_workspaces.workspace.aws_region
 }
 
-output "metastore_assigned" {
-  description = "Whether Unity Catalog metastore is assigned to this workspace"
-  value       = true
-}
-
 output "metastore_id" {
   description = "ID of assigned Unity Catalog metastore"
   value       = var.metastore_id
@@ -218,7 +213,7 @@ output "next_steps" {
 
     Workspace URL: ${databricks_mws_workspaces.workspace.workspace_url}
     Workspace ID: ${databricks_mws_workspaces.workspace.workspace_id}
-    Deployment Name: ${databricks_mws_workspaces.workspace.deployment_name}
+    Deployment Name: ${coalesce(databricks_mws_workspaces.workspace.deployment_name, "auto-generated")}
     Region: ${databricks_mws_workspaces.workspace.aws_region}
     Pricing Tier: ${databricks_mws_workspaces.workspace.pricing_tier}
     Unity Catalog: ${var.metastore_id != null ? "ENABLED (Metastore: ${var.metastore_id})" : "NOT ASSIGNED"}

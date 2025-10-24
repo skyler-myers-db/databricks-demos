@@ -30,7 +30,6 @@ resource "aws_kms_key" "databricks_s3" {
     Purpose     = "S3 bucket encryption for Databricks workspace"
     Environment = var.env
     Project     = var.project_name
-    Compliance  = "HIPAA,PCI-DSS,SOC2"
   }
 }
 

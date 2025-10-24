@@ -107,11 +107,10 @@ resource "aws_iam_policy" "databricks_unity_catalog_access" {
   policy      = data.aws_iam_policy_document.databricks_unity_catalog_access.json
 
   tags = {
-    Name                = var.policy_name
-    Purpose             = "Databricks Unity Catalog storage access"
-    DatabricksWorkspace = var.workspace_name
-    BucketScope         = "${var.bucket_name}/unity-catalog/*"
-    PolicyType          = "UnityDataAccess"
+    Name      = var.policy_name
+    Purpose   = "Databricks Unity Catalog storage access"
+    Workspace = var.workspace_name
+    Type      = "UnityDataAccess"
   }
 }
 
@@ -199,11 +198,11 @@ resource "aws_iam_policy" "databricks_file_events" {
   policy      = data.aws_iam_policy_document.databricks_file_events[0].json
 
   tags = {
-    Name                = "${var.policy_name}-file-events"
-    Purpose             = "Databricks managed file events"
-    DatabricksWorkspace = var.workspace_name
-    BucketScope         = var.bucket_name
-    PolicyType          = "FileEventsManagement"
+    Name      = "${var.policy_name}-file-events"
+    Purpose   = "Databricks managed file events"
+    Workspace = var.workspace_name
+    Bucket    = var.bucket_name
+    Type      = "FileEventsManagement"
   }
 }
 

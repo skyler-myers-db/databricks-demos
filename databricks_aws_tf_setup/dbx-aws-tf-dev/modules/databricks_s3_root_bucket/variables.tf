@@ -69,15 +69,3 @@ variable "kms_key_arn" {
   default     = null
   description = "ARN of KMS key for bucket encryption (if using customer-managed keys instead of AWS-managed)."
 }
-
-# variable "logging_bucket_id" {
-#   type        = string
-#   default     = null
-#   description = "ID of separate S3 bucket for access logging (required for SOC 2, HIPAA, PCI-DSS compliance)."
-# }
-
-# variable "enable_cors" {
-#   type        = bool
-#   default     = false
-#   description = "Enable CORS configuration for browser-based access to bucket."
-# }

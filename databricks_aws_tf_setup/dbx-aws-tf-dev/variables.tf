@@ -37,37 +37,6 @@ variable "dbx_acc_client_secret" {
   description = "Client secret of the service principle with account admin privileges"
 }
 
-# variable "dbx_ws_client_id" {
-#   type        = string
-#   description = "Client ID of the service principal of the workspace"
-# }
-
-# variable "dbx_ws_client_secret" {
-#   type        = string
-#   description = "Client secret of the service principal of the workspace"
-# }
-
-# Workspace creation variables
-# variable "dbx_ws_name" {
-#   type        = string
-#   description = "Name of the Databricks workspace"
-# }
-
-# variable "dbx_ws_deployment_name" {
-#   type        = string
-#   description = "Deployment name for the workspace (must be unique, lowercase, alphanumeric)"
-# }
-
-# variable "dbx_credentials_id" {
-#   type        = string
-#   description = "ID of the credentials configuration"
-# }
-
-# variable "dbx_storage_config_id" {
-#   type        = string
-#   description = "ID of the storage configuration"
-# }
-
 variable "dbx_network_id" {
   type        = string
   description = "ID of the network configuration"

@@ -1,43 +1,41 @@
 /**
- * Databricks Storage Configuration Module (Step 4)
+ * Databricks Storage Configuration Module
  *
  * Purpose:
- * Registers S3 bucket and IAM role with Databricks account for workspace creation.
- * This creates a storage configuration that can be referenced during workspace provisioning.
+ * Creates TWO account-level configurations required for workspace deployment:
+ * 1. Storage Configuration - Links S3 bucket to Databricks account
+ * 2. Credentials Configuration - Links IAM role to Databricks account (for EC2 provisioning)
+ *
+ * These correspond to:
+ * - "Create a storage configuration" (Databricks docs Step 1-4)
+ * - "Create a credential configuration" (Databricks docs Step 1-3)
  *
  * Prerequisites (must be completed):
- * - Step 1: S3 bucket created with proper bucket policy
- * - Step 2: IAM role created with Databricks trust policy
- * - Step 3: IAM policies attached (S3, KMS, STS, file events)
+ * - S3 bucket created with proper bucket policy
+ * - IAM role created with Databricks trust policy (arn:aws:iam::414351767826:root)
+ * - IAM policies attached (Unity Catalog S3/KMS/STS + Cross-account EC2 + File Events)
  *
- * Databricks API/Provider Details:
- * - Resource: databricks_mws_storage_configurations
- * - Scope: Account-level configuration
- * - Purpose: Associates AWS resources with Databricks account
+ * Note: Both resources use the SAME IAM role, which has permissions for:
+ * - Unity Catalog storage access (S3, KMS)
+ * - Workspace compute provisioning (EC2)
  *
- * Databricks Documentation:
- * https://docs.databricks.com/administration-guide/account-settings/storage.html
  *
  * Cost: $0/month (configuration metadata only, no infrastructure costs)
  */
 
 # Databricks storage configuration resource
+# Links S3 bucket to Databricks account for workspace storage (DBFS root)
 resource "databricks_mws_storage_configurations" "this" {
   account_id                 = var.databricks_account_id
   storage_configuration_name = var.storage_configuration_name
   bucket_name                = var.bucket_name
-
-  # Storage configuration metadata
-  # This tells Databricks account which S3 bucket to use for workspace storage
 }
 
-# Create credential configuration that references the IAM role
+# Databricks credential configuration resource
+# Links IAM role to Databricks account for EC2 compute provisioning
 resource "databricks_mws_credentials" "this" {
   credentials_name = var.credentials_name
   role_arn         = var.role_arn
-
-  # Credentials metadata
-  # This tells Databricks account which IAM role to assume for S3 access
 }
 
 # Outputs
@@ -65,7 +63,7 @@ output "credentials_name" {
 output "configuration_status" {
   description = "Module configuration status and next steps"
   value = {
-    step_completed = "Step 4: Storage Configuration Created"
+    step_completed = "Storage & Credentials Configurations Created"
     configurations = {
       storage = {
         id     = databricks_mws_storage_configurations.this.storage_configuration_id
@@ -79,12 +77,7 @@ output "configuration_status" {
       }
     }
     account_id = var.databricks_account_id
-    next_step  = "Step 5: Create Databricks network configuration"
-    required_info = {
-      vpc_id            = "From aws_vpc module output"
-      subnet_ids        = "From aws_subnets module output (private subnets)"
-      security_group_id = "From aws_security_groups module output (workspace SG)"
-    }
+    next_step  = "Create Databricks workspace with these configurations"
   }
 }
 

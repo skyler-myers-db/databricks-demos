@@ -10,6 +10,7 @@
 #
 # MODULE DEPENDENCY FLOW:
 # -----------------------
+# 0. terraform_backend   → Creates S3 + DynamoDB for remote state (optional, run first)
 # 1. aws_account         → Creates AWS account in organization
 # 2. aws_vpc             → Creates VPC with flow logs and DNS
 # 3. aws_subnets         → Creates private/public subnets (depends on VPC)
@@ -30,8 +31,35 @@
 # ✅ High availability (multi-AZ by default)
 # ✅ Security first (least privilege, defense in depth)
 # ✅ Observable (flow logs, CloudWatch integration)
+# ✅ Remote state ready (S3 + DynamoDB for team collaboration)
 #
 # ============================================================================
+
+# ============================================================================
+# STEP 0: TERRAFORM BACKEND INFRASTRUCTURE
+# ============================================================================
+# Purpose: Create S3 bucket + DynamoDB table for remote Terraform state
+#
+# DEPLOYMENT WORKFLOW:
+# 1. First apply: Creates backend resources (using local state)
+# 2. After successful apply: Copy backend config from output
+# 3. Add backend config to versions.tf
+# 4. Run: terraform init -migrate-state
+# 5. Subsequent applies: Use remote state in S3 (team collaboration ready)
+#
+# No chicken-and-egg problem: Backend resources are created WITH the
+# infrastructure in first apply, then state is migrated to S3 afterward.
+# ============================================================================
+module "terraform_backend" {
+  source = "./modules/terraform_backend"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  project_name = var.project_name
+  env          = var.env
+}
 
 # Step 1: Create the AWS account in your organization
 # Uses root account provider
@@ -66,7 +94,7 @@ module "vpc" {
   vpc_cidr_block           = var.vpc_cidr_block
   project_name             = var.project_name
   env                      = var.env
-  flow_logs_retention_days = 7 # Use 30-90 for production
+  flow_logs_retention_days = 30 # Compliance requirement: 30 days minimum for SOC2/HIPAA
 
   depends_on = [module.aws_account]
 }
@@ -308,6 +336,26 @@ module "databricks_cross_account_policy" {
   # Deployment type: Customer-managed VPC with default restrictions
 }
 
+# Step 12c: Wait for IAM policy propagation (AWS eventual consistency)
+# CRITICAL: Do not remove this resource!
+# AWS IAM changes take 30-120 seconds to propagate globally. Without this delay,
+# Databricks credential validation will fail on fresh deployments with:
+# "Failed credential validation checks: please use a valid cross account IAM role"
+resource "time_sleep" "wait_for_iam_propagation" {
+  depends_on = [
+    module.databricks_iam_role,
+    module.databricks_iam_policy,
+    module.databricks_cross_account_policy
+  ]
+
+  create_duration = "120s" # 2 minutes - validated minimum time for reliable deployment
+
+  # Force recreation when IAM role changes (ensures fresh wait on role updates)
+  triggers = {
+    role_arn = module.databricks_iam_role.role_arn
+  }
+}
+
 # Step 13: Create Databricks storage configuration (Step 4 - Databricks account config)
 module "databricks_storage_config" {
   source = "./modules/databricks_storage_config"
@@ -316,12 +364,14 @@ module "databricks_storage_config" {
     databricks = databricks.mws
   }
 
-  # Explicit dependencies: Wait for all AWS resources to be ready
+  # Explicit dependencies: Wait for all AWS resources to be ready AND IAM to propagate
+  # Dependencies: Ensure all prerequisites are met before creating storage config
   depends_on = [
     module.databricks_s3_root,
     module.databricks_iam_role,
     module.databricks_iam_policy,
-    module.databricks_cross_account_policy
+    module.databricks_cross_account_policy,
+    time_sleep.wait_for_iam_propagation # CRITICAL: Must wait for IAM propagation
   ]
 
   # Configuration naming
@@ -543,4 +593,113 @@ module "aws_budgets" {
   alert_emails         = length(var.budget_alert_emails) > 0 ? var.budget_alert_emails : [var.admin_email]
   budget_start_date    = var.budget_start_date
 }
+
+# ============================================================================
+# STEP 18: AWS CONFIG - Compliance & Configuration Monitoring
+# ============================================================================
+# Purpose: Continuously monitor AWS resource configurations for compliance
+# Cost: ~$2-5/month (Config recorder + rules evaluation)
+#
+# WHAT IT PROVIDES:
+# - 8 compliance rules (encrypted volumes, S3 security, MFA, etc.)
+# - Configuration history stored in S3 (365-day retention)
+# - Email alerts for compliance violations
+# - Audit trail for SOC 2, HIPAA, PCI-DSS compliance
+#
+# COMPLIANCE RULES ENABLED:
+# - encrypted-volumes: All EBS volumes must be encrypted
+# - s3-bucket-public-read-prohibited: No public read access on S3
+# - s3-bucket-public-write-prohibited: No public write access on S3
+# - s3-bucket-ssl-requests-only: S3 must require HTTPS
+# - s3-bucket-server-side-encryption-enabled: S3 encryption required
+# - root-account-mfa-enabled: Root account must have MFA
+# - vpc-flow-logs-enabled: VPC Flow Logs must be enabled
+# - iam-password-policy: Strong password policy required
+# ============================================================================
+module "aws_config" {
+  source = "./modules/aws_config"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  project_name          = var.project_name
+  env                   = var.env
+  notification_email    = var.admin_email
+  config_retention_days = 365 # 1 year retention for compliance audits
+}
+
+# ============================================================================
+# STEP 19: AWS GUARDDUTY - Threat Detection & Security Monitoring
+# ============================================================================
+# Purpose: Continuously monitor for malicious activity and unauthorized behavior
+# Cost: ~$5-10/month (based on data volume analyzed)
+#
+# WHAT IT DETECTS:
+# - Compromised EC2 instances (crypto mining, C&C communication)
+# - Compromised IAM credentials (leaked keys, privilege escalation)
+# - S3 bucket attacks (data exfiltration, unusual access patterns)
+# - Network attacks (port scanning, DDoS, unusual protocols)
+# - Malware activity (known malicious IPs, domains, file hashes)
+#
+# DATA SOURCES ANALYZED:
+# - VPC Flow Logs (network traffic patterns)
+# - CloudTrail logs (API call patterns)
+# - DNS logs (suspicious domain resolutions)
+# - S3 data events (unusual bucket access)
+# - Kubernetes audit logs (EKS API activity)
+# - Malware protection (EBS volume scans)
+#
+# ALERT CONFIGURATION:
+# - Email alerts for HIGH (7.0-8.9) and CRITICAL (9.0-10.0) severity findings
+# - Alerts sent via SNS within 15 minutes of detection
+# - Low severity findings auto-archived to reduce noise
+# ============================================================================
+module "aws_guardduty" {
+  source = "./modules/aws_guardduty"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  project_name       = var.project_name
+  env                = var.env
+  notification_email = var.admin_email
+}
+
+# ============================================================================
+# STEP 20: AWS IAM IDENTITY CENTER + DATABRICKS SCIM (PHASE 2 - OPTIONAL)
+# ============================================================================
+# Purpose: Automated user/group provisioning from G-Suite to Databricks
+#
+# This module creates:
+# - OAuth token for SCIM (retrieve anytime with: terraform output -raw identity_center_scim_token)
+# - data_engineers group with broad sandbox permissions
+# - Unity Catalog grants for the group
+#
+# When ready to enable SCIM provisioning (optional, do later):
+# - Follow modules/aws_iam_identity_center/MANUAL_SETUP_GUIDE.md
+# - Configure AWS IAM Identity Center + G-Suite SAML
+# - Use the SCIM token output in AWS console
+#
+# NOTE: Module is commented to prevent validation hangs with API calls.
+# Uncomment when ready to deploy (after infrastructure is created).
+# ============================================================================
+# module "identity_center" {
+#   source = "./modules/aws_iam_identity_center"
+#
+#   providers = {
+#     databricks.mws = databricks.mws
+#   }
+#
+#   depends_on = [module.databricks_workspace]
+#
+#   environment                          = var.env
+#   project_name                         = var.project_name
+#   existing_service_principal_client_id = var.dbx_acc_client_id
+#   oauth_token_lifetime_seconds         = 31536000 # 1 year (rotate annually)
+#   group_data_engineers_name            = "data_engineers"
+#   unity_catalog_name                   = "main"
+#   tags                                 = var.aws_tags
+# }
 

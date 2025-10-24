@@ -10,7 +10,7 @@ terraform {
   required_providers {
     databricks = {
       source  = "databricks/databricks"
-      version = "~> 1.94.0"
+      version = "~> 1.95.0"
     }
   }
 }

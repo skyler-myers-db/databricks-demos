@@ -3,18 +3,17 @@
  *
  * Purpose:
  * Creates IAM role for Databricks cross-account access to AWS resources.
- * This role is Step 2 of the Databricks storage configuration process.
+ * This role is used for BOTH workspace provisioning AND Unity Catalog storage access.
  *
  * Key Features:
- * - Trust policy for Databricks Unity Catalog production role
- * - Self-assuming role pattern for enhanced security
- * - External ID condition using Databricks account ID
- * - Ready for S3 bucket access policy attachment
+ * - Trust policy for Databricks AWS account (414351767826) - workspace provisioning
+ * - External ID condition using Databricks account ID (prevents confused deputy)
+ * - Ready for S3, KMS, and EC2 policy attachments
  *
  * Security:
  * - Principle of least privilege (no inline policies)
  * - External ID prevents confused deputy problem
- * - Self-assuming pattern allows role to renew its own credentials
+ * - Allows Databricks to assume role for EC2 and storage operations
  *
  * Databricks Documentation:
  * https://docs.databricks.com/aws/iam/aws-storage-role.html
@@ -22,18 +21,17 @@
  * Cost: $0/month (IAM roles are free)
  */
 
-# Get current AWS account ID for self-assuming role pattern
+# Get current AWS account ID
 data "aws_caller_identity" "current" {}
 
 # IAM role for Databricks cross-account access
 resource "aws_iam_role" "databricks_storage" {
   name        = var.role_name
-  description = "Databricks cross-account role for S3 storage access - allows Unity Catalog to access workspace root bucket"
+  description = "Databricks cross-account role for workspace provisioning and Unity Catalog storage access"
   path        = "/databricks/"
 
-  # Trust policy allowing:
-  # 1. Databricks Unity Catalog production role (414351767826)
-  # 2. Self-assuming pattern (this role can assume itself)
+  # Trust policy allowing Databricks AWS account to assume this role
+  # This is the standard cross-account trust policy for Databricks
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -41,10 +39,7 @@ resource "aws_iam_role" "databricks_storage" {
         Sid    = "AllowDatabricksToAssumeRole"
         Effect = "Allow"
         Principal = {
-          AWS = [
-            "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL",
-            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/databricks/${var.role_name}"
-          ]
+          AWS = "arn:aws:iam::414351767826:root"
         }
         Action = "sts:AssumeRole"
         Condition = {

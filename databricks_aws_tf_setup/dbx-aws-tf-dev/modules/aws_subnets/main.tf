@@ -80,9 +80,11 @@ resource "aws_subnet" "private" {
 # Public subnets for NAT Gateways
 # NO Databricks workloads run here (NAT Gateways only)
 resource "aws_subnet" "public" {
-  count                           = var.subnet_count
-  vpc_id                          = var.vpc_id
-  cidr_block                      = cidrsubnet(var.vpc_cidr_block, var.public_subnet_newbits, count.index + 4) # Offset to avoid overlap
+  count  = var.subnet_count
+  vpc_id = var.vpc_id
+  # Use pow(2, private_newbits) as offset to avoid overlap with private subnets
+  # Example: private=/26 uses indexes 0-3, public=/28 starts at index 8 (2^2 * 2)
+  cidr_block                      = cidrsubnet(var.vpc_cidr_block, var.public_subnet_newbits, count.index + pow(2, var.private_subnet_newbits) * 2)
   availability_zone               = var.availability_zones[count.index]
   map_public_ip_on_launch         = true  # NAT Gateways need public IPs
   assign_ipv6_address_on_creation = false # Not required

@@ -144,11 +144,6 @@ output "pricing_tier" {
   value       = module.databricks_workspace.pricing_tier
 }
 
-output "metastore_assigned_to_workspace" {
-  description = "Whether Unity Catalog metastore is assigned to workspace"
-  value       = module.databricks_workspace.metastore_assigned
-}
-
 # ============================================================================
 # Quick Start Output
 # ============================================================================
@@ -163,7 +158,7 @@ output "quick_start_guide" {
     -------------------
     URL: ${module.databricks_workspace.workspace_url}
     Workspace ID: ${module.databricks_workspace.workspace_id}
-    Deployment: ${module.databricks_workspace.deployment_name}
+    Deployment: ${coalesce(module.databricks_workspace.deployment_name, "auto-generated")}
     Status: ${module.databricks_workspace.workspace_status}
     Region: ${var.aws_region}
     Tier: ${module.databricks_workspace.pricing_tier}
@@ -172,7 +167,6 @@ output "quick_start_guide" {
     ----------------
     Metastore ID: ${module.databricks_metastore.metastore_id}
     Metastore: ${module.databricks_metastore.metastore_name}
-    Assigned: ${module.databricks_workspace.metastore_assigned ? "✅ YES" : "❌ NO"}
     Storage Model: Metastore WITHOUT storage_root (modern best practice)
 
     🌐 NETWORKING
@@ -271,7 +265,6 @@ output "quick_start_guide" {
     → Verify NAT Gateways are active
 
     If Unity Catalog not visible:
-    → terraform output metastore_assigned_to_workspace (should be true)
     → Ensure user has account admin role
     → Check data access configuration
 
@@ -316,64 +309,44 @@ output "infrastructure_summary" {
     workspace_status  = module.databricks_workspace.workspace_status
 
     # Configuration
-    region                = var.aws_region
-    pricing_tier          = module.databricks_workspace.pricing_tier
-    unity_catalog_enabled = module.databricks_workspace.metastore_assigned
+    region       = var.aws_region
+    pricing_tier = module.databricks_workspace.pricing_tier
   }
 }
 
 # ============================================================================
-# Terraform State Reference
+# Terraform Backend Setup
 # ============================================================================
-output "terraform_state_info" {
-  description = "Information about Terraform state management"
-  value       = <<-EOT
-    ================================================================================
-    TERRAFORM STATE MANAGEMENT
-    ================================================================================
-
-    Current State Backend: Local (terraform.tfstate file)
-
-    ⚠️  PRODUCTION RECOMMENDATION: Migrate to remote state backend
-
-    REMOTE STATE SETUP (S3 + DynamoDB):
-    -----------------------------------
-
-    1. Create S3 bucket for state storage:
-       aws s3 mb s3://my-terraform-state-bucket --region us-east-2
-       aws s3api put-bucket-versioning \
-         --bucket my-terraform-state-bucket \
-         --versioning-configuration Status=Enabled
-
-    2. Create DynamoDB table for state locking:
-       aws dynamodb create-table \
-         --table-name terraform-state-lock \
-         --attribute-definitions AttributeName=LockID,AttributeType=S \
-         --key-schema AttributeName=LockID,KeyType=HASH \
-         --billing-mode PAY_PER_REQUEST \
-         --region us-east-2
-
-    3. Add backend configuration to versions.tf:
-       terraform {
-         backend "s3" {
-           bucket         = "my-terraform-state-bucket"
-           key            = "databricks/terraform.tfstate"
-           region         = "us-east-2"
-           encrypt        = true
-           dynamodb_table = "terraform-state-lock"
-         }
-       }
-
-    4. Migrate state:
-       terraform init -migrate-state
-
-    BENEFITS:
-    ✅ Team collaboration (shared state)
-    ✅ State locking (prevents concurrent modifications)
-    ✅ State encryption (security)
-    ✅ State versioning (disaster recovery)
-    ✅ Audit trail (S3 access logs)
-
-    ================================================================================
-  EOT
+output "migrate_to_remote_state" {
+  description = "Instructions for migrating to S3 remote state"
+  value       = module.terraform_backend.backend_configuration
 }
+
+data "aws_caller_identity" "current" {}
+
+# ============================================================================
+# Identity Center Outputs (Phase 2 - Optional)
+# ============================================================================
+# Uncomment after enabling identity_center module in main.tf
+
+# output "identity_center_scim_token" {
+#   description = "SCIM token for AWS IAM Identity Center (SENSITIVE - use for AWS console setup)"
+#   value       = module.identity_center.scim_token
+#   sensitive   = true
+# }
+#
+# output "identity_center_scim_endpoint" {
+#   description = "SCIM endpoint URL for AWS IAM Identity Center configuration"
+#   value       = module.identity_center.scim_endpoint
+# }
+#
+# output "identity_center_data_engineers_group_id" {
+#   description = "ID of the data_engineers group in Databricks"
+#   value       = module.identity_center.data_engineers_group_id
+# }
+#
+# output "identity_center_next_steps" {
+#   description = "Instructions for completing SCIM setup in AWS IAM Identity Center"
+#   value       = module.identity_center.next_steps
+# }
+
