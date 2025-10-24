@@ -519,7 +519,7 @@ This project is provided as-is for educational and reference purposes.
 
 ---
 
-**Last Updated**: 2025-01-XX
+**Last Updated**: 2025-10-24
 **Terraform Version**: >= 1.13.4
 **AWS Provider**: 6.17.0
 **Databricks Provider**: 1.94.0
