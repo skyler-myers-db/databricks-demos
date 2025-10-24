@@ -67,6 +67,18 @@ resource "databricks_metastore_data_access" "this" {
     role_arn = var.iam_role_arn
   }
   is_default = true
+
+  # Lifecycle configuration to handle API behavior
+  # The Databricks API may not honor is_default = true in all cases
+  # (e.g., if there's already a default, or if it's not supported for metastore data access)
+  # Ignore changes to prevent perpetual diff
+  lifecycle {
+    ignore_changes = [
+      is_default,
+      owner,
+      isolation_mode
+    ]
+  }
 }
 
 # Outputs

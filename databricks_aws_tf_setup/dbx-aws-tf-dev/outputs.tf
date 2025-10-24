@@ -324,29 +324,3 @@ output "migrate_to_remote_state" {
 
 data "aws_caller_identity" "current" {}
 
-# ============================================================================
-# Identity Center Outputs (Phase 2 - Optional)
-# ============================================================================
-# Uncomment after enabling identity_center module in main.tf
-
-# output "identity_center_scim_token" {
-#   description = "SCIM token for AWS IAM Identity Center (SENSITIVE - use for AWS console setup)"
-#   value       = module.identity_center.scim_token
-#   sensitive   = true
-# }
-#
-# output "identity_center_scim_endpoint" {
-#   description = "SCIM endpoint URL for AWS IAM Identity Center configuration"
-#   value       = module.identity_center.scim_endpoint
-# }
-#
-# output "identity_center_data_engineers_group_id" {
-#   description = "ID of the data_engineers group in Databricks"
-#   value       = module.identity_center.data_engineers_group_id
-# }
-#
-# output "identity_center_next_steps" {
-#   description = "Instructions for completing SCIM setup in AWS IAM Identity Center"
-#   value       = module.identity_center.next_steps
-# }
-
