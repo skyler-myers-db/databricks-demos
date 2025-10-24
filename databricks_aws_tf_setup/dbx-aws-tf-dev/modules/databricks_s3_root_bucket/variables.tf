@@ -64,11 +64,11 @@ variable "log_retention_days" {
 # OPTIONAL VARIABLES (Uncomment and configure as needed)
 # ============================================================================
 
-# variable "kms_key_id" {
-#   type        = string
-#   default     = null
-#   description = "ARN of KMS key for bucket encryption (if using customer-managed keys instead of AWS-managed)."
-# }
+variable "kms_key_arn" {
+  type        = string
+  default     = null
+  description = "ARN of KMS key for bucket encryption (if using customer-managed keys instead of AWS-managed)."
+}
 
 # variable "logging_bucket_id" {
 #   type        = string

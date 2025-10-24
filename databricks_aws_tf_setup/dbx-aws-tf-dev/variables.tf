@@ -74,6 +74,18 @@ variable "dbx_network_id" {
   default     = null
 }
 
+# Unity Catalog Variables
+variable "dbx_metastore_owner_email" {
+  type        = string
+  description = "Email address of Unity Catalog metastore owner (must be a Databricks account admin)"
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.dbx_metastore_owner_email))
+    error_message = "Must be a valid email address format."
+  }
+}
+
 # AWS Account Creation Variables
 variable "account_email" {
   type        = string
@@ -132,4 +144,43 @@ variable "public_subnet_newbits" {
     condition     = var.public_subnet_newbits >= 3 && var.public_subnet_newbits <= 8
     error_message = "Public subnet newbits must be between 3 and 8 to ensure valid subnet sizes."
   }
+}
+
+# ============================================================================
+# AWS Budgets Variables
+# ============================================================================
+variable "monthly_budget_limit" {
+  type        = number
+  default     = 1000
+  description = "Monthly AWS budget limit in USD for this Databricks project (total AWS costs)"
+}
+
+variable "dbu_budget_limit" {
+  type        = number
+  default     = 500
+  description = "Monthly budget for Databricks DBU spending only (subset of monthly_budget_limit)"
+}
+
+variable "create_dbu_budget" {
+  type        = bool
+  default     = false
+  description = "Create a separate budget specifically for Databricks DBU tracking"
+}
+
+variable "budget_alert_emails" {
+  type        = list(string)
+  default     = []
+  description = "Email addresses to receive AWS budget alerts (use email variable if not specified)"
+}
+
+variable "budget_start_date" {
+  type        = string
+  default     = null
+  description = "Budget start date in YYYY-MM-01 format (defaults to current month if null)"
+}
+
+variable "admin_email" {
+  type        = string
+  default     = "skyler@entrada.ai"
+  description = "Administrator email address for alerts and notifications"
 }

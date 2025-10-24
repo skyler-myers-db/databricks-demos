@@ -85,18 +85,18 @@ resource "aws_s3_bucket_versioning" "databricks_root" {
 # ============================================================================
 # ENCRYPTION AT REST - Security Requirement
 # ============================================================================
-# All data encrypted using AWS managed keys (SSE-S3)
-# Can be upgraded to customer-managed KMS keys if required
+# Uses customer-managed KMS keys for compliance requirements
+# Provides audit trail, key rotation, and customer control
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "databricks_root" {
   bucket = aws_s3_bucket.databricks_root.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256" # AWS managed keys (SSE-S3)
-      # For KMS: sse_algorithm = "aws:kms" and kms_master_key_id = var.kms_key_id
+      sse_algorithm     = var.kms_key_arn != null ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_arn # null if using SSE-S3
     }
-    bucket_key_enabled = true # Reduces KMS costs by 99% if using KMS
+    bucket_key_enabled = true # Reduces KMS costs by 99%
   }
 }
 

@@ -199,7 +199,22 @@ module "network_acls" {
 # DATABRICKS WORKSPACE RESOURCES
 # ============================================================================
 
-# Step 10: Create S3 root bucket for Databricks workspace storage (DBFS root)
+# Step 10a: Create KMS key for S3 encryption (Compliance requirement)
+module "kms" {
+  source = "./modules/aws_kms"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  project_name        = var.project_name
+  env                 = var.env
+  databricks_role_arn = module.databricks_iam_role.role_arn
+
+  depends_on = [module.databricks_iam_role]
+}
+
+# Step 10b: Create S3 root bucket for Databricks workspace storage (DBFS root)
 module "databricks_s3_root" {
   source = "./modules/databricks_s3_root_bucket"
 
@@ -211,10 +226,13 @@ module "databricks_s3_root" {
   env                = var.env
   workspace_name     = "${var.project_name}-${var.env}-workspace"
   dbx_account_id     = var.dbx_account_id
-  log_retention_days = 365 # Cluster logs retention (1 year)
+  log_retention_days = 365                    # Cluster logs retention (1 year)
+  kms_key_arn        = module.kms.kms_key_arn # Customer-managed KMS encryption
 
   # Bucket naming: databricks-workspace-<project>-<env>
   # Example: databricks-workspace-myproject-dev
+
+  depends_on = [module.kms]
 }
 
 # Step 11: Create IAM role for Databricks cross-account S3 access
@@ -256,8 +274,8 @@ module "databricks_iam_policy" {
   project_name   = var.project_name
   env            = var.env
 
-  # KMS encryption (set to null if using SSE-S3)
-  kms_key_arn = null # Change to KMS key ARN if bucket uses KMS encryption
+  # KMS encryption enabled for compliance
+  kms_key_arn = module.kms.kms_key_arn
 
   # File events management (highly recommended by Databricks)
   enable_file_events = true
@@ -266,3 +284,263 @@ module "databricks_iam_policy" {
   # Policy 1 (Unity Catalog): S3 (/unity-catalog/* paths), KMS (if enabled), STS (self-assuming)
   # Policy 2 (File Events): S3 notifications, SNS topic mgmt, SQS queue mgmt
 }
+
+# Step 12b: Attach cross-account compute policy to Databricks IAM role (Step 2 - Workspace credentials)
+module "databricks_cross_account_policy" {
+  source = "./modules/databricks_cross_account_policy"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  # Dependency: Wait for IAM role to be created
+  depends_on = [module.databricks_iam_role]
+
+  policy_name    = "${var.project_name}-${var.env}-databricks-cross-account"
+  role_name      = module.databricks_iam_role.role_name
+  workspace_name = "${var.project_name}-${var.env}-workspace"
+  project_name   = var.project_name
+  env            = var.env
+
+  # Grants comprehensive EC2 and IAM permissions per Databricks Step 2:
+  # - EC2: Launch/terminate instances, volumes, security groups, spot/fleet management
+  # - IAM: Create service-linked role for EC2 Spot
+  # Deployment type: Customer-managed VPC with default restrictions
+}
+
+# Step 13: Create Databricks storage configuration (Step 4 - Databricks account config)
+module "databricks_storage_config" {
+  source = "./modules/databricks_storage_config"
+
+  providers = {
+    databricks = databricks.mws
+  }
+
+  # Explicit dependencies: Wait for all AWS resources to be ready
+  depends_on = [
+    module.databricks_s3_root,
+    module.databricks_iam_role,
+    module.databricks_iam_policy,
+    module.databricks_cross_account_policy
+  ]
+
+  # Configuration naming
+  storage_configuration_name = "${var.project_name}-${var.env}-storage-config"
+  credentials_name           = "${var.project_name}-${var.env}-credentials"
+
+  # AWS resources to register with Databricks account
+  databricks_account_id = var.dbx_account_id
+  bucket_name           = module.databricks_s3_root.bucket_name
+  role_arn              = module.databricks_iam_role.role_arn
+
+  # Metadata
+  project_name = var.project_name
+  env          = var.env
+
+  # This creates account-level storage configuration that references:
+  # - S3 bucket (from Step 1)
+  # - IAM role ARN (from Step 2)
+  # - IAM policies are already attached (from Step 3)
+  # Storage configuration ID will be used in Step 6 (workspace creation)
+}
+
+# Step 14: Create Databricks network configuration (Step 5 - Customer-managed VPC)
+module "databricks_network_config" {
+  source = "./modules/databricks_network_config"
+
+  providers = {
+    databricks = databricks.mws
+  }
+
+  # Explicit dependencies: Wait for all networking resources to be ready
+  depends_on = [
+    module.vpc,
+    module.subnets,
+    module.security_groups,
+    module.route_tables,
+    module.network_acls,
+    module.vpc_endpoints
+  ]
+
+  # Configuration naming
+  network_configuration_name = "${var.project_name}-${var.env}-network-config"
+
+  # AWS networking resources to register with Databricks account
+  databricks_account_id = var.dbx_account_id
+  vpc_id                = module.vpc.vpc_id
+  subnet_ids            = module.subnets.private_subnet_ids
+  security_group_ids    = [module.security_groups.databricks_workspace_security_group_id]
+
+  # Metadata
+  project_name = var.project_name
+  env          = var.env
+
+  # This creates account-level network configuration that references:
+  # - VPC with flow logs and DNS enabled
+  # - Private subnets (minimum 2 in different AZs)
+  # - Databricks workspace security group with all required rules
+  # IMPORTANT: Network config CANNOT be reused across workspaces (per Databricks docs)
+  # Network configuration ID will be used in Step 6 (workspace creation)
+}
+
+# Step 15: Create Unity Catalog metastore (BEFORE workspace creation)
+module "databricks_metastore" {
+  source = "./modules/databricks_metastore"
+
+  providers = {
+    databricks = databricks.mws
+  }
+
+  # Explicit dependencies: Wait for IAM role to be ready
+  depends_on = [
+    module.databricks_iam_role,
+    module.databricks_cross_account_policy
+  ]
+
+  # Metastore configuration
+  metastore_name          = "${var.project_name}-${var.env}-${var.aws_region}-metastore"
+  aws_region              = var.aws_region
+  metastore_owner         = var.dbx_metastore_owner_email
+  data_access_config_name = "${var.project_name}-${var.env}-data-access"
+  iam_role_arn            = module.databricks_iam_role.role_arn
+
+  # Metadata
+  project_name = var.project_name
+  env          = var.env
+
+  # Modern best practice: NO storage_root
+  # - Metastore has no default storage location
+  # - Each catalog must specify MANAGED LOCATION 's3://your-bucket/catalog-name/'
+  # - Promotes catalog-level governance and organization
+  # - Enables full managed table features (predictive optimization, liquid clustering)
+  # Metastore metadata (catalogs, schemas, permissions) stored in Databricks control plane ($0 cost)
+}
+
+# ============================================================================
+# STEP 16: DATABRICKS WORKSPACE CREATION
+# ============================================================================
+# Purpose: Create Databricks E2 workspace on AWS Premium tier
+# Module: databricks_workspace
+# Provider: databricks.mws (account-level)
+#
+# THIS IS THE FINAL STEP that brings all infrastructure together:
+# - VPC, subnets, security groups (Steps 6-14)
+# - S3 root bucket (Step 1)
+# - IAM role with storage + compute policies (Steps 2-3)
+# - Storage configuration (Step 4)
+# - Network configuration (Step 5)
+# - Unity Catalog metastore (Step 15)
+#
+# WORKSPACE ARCHITECTURE:
+# - Control Plane: Databricks-managed AWS account (web UI, notebooks, metadata)
+# - Classic Compute Plane: YOUR AWS account VPC (EC2 clusters, data processing)
+# - Storage: YOUR S3 buckets (you pay, you control, you encrypt)
+# - Unity Catalog: Shared metastore across workspaces (one per region)
+#
+# NAMING CONVENTIONS:
+# - workspace_name: User-facing display (e.g., "Databricks Analytics Dev")
+# - deployment_name: Infrastructure ID (e.g., "dbx-tf-dev-us-east-2")
+#   Must be globally unique across ALL Databricks customers
+#   Format: <project>-<env>-<region> (lowercase, alphanumeric, hyphens)
+#
+# WORKSPACE URL:
+# - Format: https://<deployment_name>.cloud.databricks.com
+# - Example: https://dbx-tf-dev-us-east-2.cloud.databricks.com
+#
+# PRICING TIER:
+# - PREMIUM: Required for Unity Catalog, RBAC, IP Access Lists, Private Link
+# - Includes: Audit logs, compliance features, advanced security
+# - Cost: Charged per DBU consumed (compute usage)
+#
+# UNITY CATALOG ASSIGNMENT:
+# - Metastore assigned immediately after workspace creation
+# - Cannot change metastore after assignment (permanent decision)
+# - One metastore per region, shared across multiple workspaces
+# - Each workspace can have multiple catalogs within the metastore
+#
+# DEPLOYMENT TIME:
+# - Workspace provisioning: 5-10 minutes
+# - First login initialization: 2-3 minutes
+# - Cluster creation: 3-5 minutes
+# - Total time to first query: ~15 minutes
+#
+# COST FACTORS (Monthly Estimates):
+# - Workspace metadata: $0 (Databricks pays control plane costs)
+# - NAT Gateway: ~$40-50/month ($0.045/hour + $0.045/GB transfer)
+# - VPC Endpoints: ~$14/month (2 endpoints × $0.01/hour × 730 hours)
+# - S3 Storage: ~$0.023/GB/month standard storage
+# - Compute: Variable based on DBU consumption (Jobs, Interactive, SQL, DLT)
+# - Example: 100 hours/month @ 2 DBUs/hour = $0.40/DBU × 2 × 100 = $80/month
+# ============================================================================
+module "databricks_workspace" {
+  source = "./modules/databricks_workspace"
+
+  providers = {
+    databricks.mws = databricks.mws
+  }
+
+  # Explicit dependencies: All infrastructure must exist first
+  depends_on = [
+    module.databricks_storage_config, # Step 4: Storage + credentials
+    module.databricks_network_config, # Step 5: VPC registration
+    module.databricks_metastore       # Step 15: Unity Catalog metastore
+  ]
+
+  # Account configuration
+  dbx_account_id = var.dbx_account_id
+  aws_region     = var.aws_region
+
+  # Workspace naming
+  workspace_name  = "${var.project_name} Analytics ${title(replace(var.env, "-", ""))}" # "Databricks TF Analytics Dev"
+  deployment_name = "${var.project_name}${var.env}-${var.aws_region}"                   # "dbx-tf-dev-us-east-2"
+
+  # Infrastructure dependencies (IDs from previous modules)
+  credentials_id           = module.databricks_storage_config.credentials_id
+  storage_configuration_id = module.databricks_storage_config.storage_configuration_id
+  network_id               = module.databricks_network_config.network_id
+
+  # Pricing tier (PREMIUM for Unity Catalog and RBAC)
+  pricing_tier = "PREMIUM"
+
+  # Unity Catalog metastore assignment
+  metastore_id         = module.databricks_metastore.metastore_id
+  default_catalog_name = "main" # Default catalog for workspace queries
+
+  # Metadata for tagging and naming
+  project_name = var.project_name
+  env          = var.env
+}
+
+# ============================================================================
+# STEP 17: AWS BUDGET ALERTS - Cost Management
+# ============================================================================
+# Purpose: Monitor AWS spending and send alerts at defined thresholds
+# Cost: FREE (first 2 budgets included)
+#
+# WHAT IT PROVIDES:
+# - Email alerts at 50%, 80%, 100%, 120% of monthly budget
+# - Forecasted spending alerts (predictive)
+# - Filtered by project and environment tags
+# - Helps prevent bill shock
+#
+# ALERT RECIPIENTS:
+# - All emails in var.budget_alert_emails variable
+# - AWS will send confirmation emails (must click to subscribe)
+# - Alerts sent once per day maximum per threshold
+# ============================================================================
+module "aws_budgets" {
+  source = "./modules/aws_budgets"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  project_name         = var.project_name
+  env                  = var.env
+  monthly_budget_limit = var.monthly_budget_limit
+  dbu_budget_limit     = var.dbu_budget_limit
+  create_dbu_budget    = var.create_dbu_budget
+  alert_emails         = length(var.budget_alert_emails) > 0 ? var.budget_alert_emails : [var.admin_email]
+  budget_start_date    = var.budget_start_date
+}
+
