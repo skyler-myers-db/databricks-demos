@@ -60,11 +60,9 @@ variable "project_name" {
 }
 
 variable "env" {
-  description = "Environment (dev, staging, prod)"
+  description = "Environment (e.g., 'dev', '-dev', 'staging', 'prod')"
   type        = string
 
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.env)
-    error_message = "Environment must be one of: dev, staging, prod."
-  }
+  # Note: Validation removed to support flexible naming conventions (with or without hyphens)
+  # Examples: "dev", "-dev", "staging", "-staging", "prod", "-prod"
 }

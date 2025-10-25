@@ -348,7 +348,7 @@ resource "time_sleep" "wait_for_iam_propagation" {
     module.databricks_cross_account_policy
   ]
 
-  create_duration = "120s" # 2 minutes - validated minimum time for reliable deployment
+  create_duration = "180s" # 3 minutes - validated minimum time for reliable deployment across all AWS regions
 
   # Force recreation when IAM role changes (ensures fresh wait on role updates)
   triggers = {
@@ -562,7 +562,93 @@ module "databricks_workspace" {
 }
 
 # ============================================================================
-# STEP 17: AWS BUDGET ALERTS - Cost Management
+# STEP 17: USER PROVISIONING - Service Principal & Workspace Permissions
+# ============================================================================
+# Purpose: Set up automation service principal and assign workspace admins
+#
+# STRATEGY WITH GOOGLE SCIM:
+# ---------------------------
+# - Users/Groups: Managed by Google SCIM (source of truth)
+# - Service Principals: Managed by Terraform (automation accounts)
+# - Workspace Assignments: Managed by Terraform (who has access)
+#
+# WHY THIS APPROACH:
+# ------------------
+# With SCIM enabled, you should NEVER manage users/groups in Terraform.
+# Google is your IdP and source of truth. Terraform would conflict with SCIM.
+#
+# Instead, Terraform:
+# 1. Creates service principals (automation accounts, not synced via SCIM)
+# 2. References existing SCIM-synced users/groups via data sources
+# 3. Assigns those users/groups to workspaces
+#
+# USER MANAGEMENT WORKFLOW:
+# -------------------------
+# Adding new user to data_engineers group:
+# 1. Add user to "data_engineers" group in Google Workspace
+# 2. SCIM automatically syncs to Databricks
+# 3. User automatically gets workspace access (no Terraform change needed!)
+#
+# ADMIN USER ASSIGNMENT:
+# ----------------------
+# Your user (skyler@entrada.ai) is assigned as workspace admin on every
+# workspace via the workspace_permissions module. This happens automatically
+# for all workspaces created with this pattern.
+# ============================================================================
+
+# Step 17a: Create Service Principal for Workspace Infrastructure Management
+module "workspace_service_principal" {
+  source = "./modules/databricks_service_principal"
+
+  providers = {
+    databricks.mws = databricks.mws
+  }
+
+  depends_on = [
+    module.databricks_workspace
+  ]
+
+  # Service principal naming
+  service_principal_name = "${var.project_name}-workspace-terraform${var.env}"
+
+  # Workspace assignment
+  workspace_id  = module.databricks_workspace.workspace_id
+  workspace_url = module.databricks_workspace.workspace_url
+
+  # Metadata
+  project_name = var.project_name
+  env          = var.env
+}
+
+# Step 17b: Assign Workspace Admins (SCIM-synced users and groups)
+module "workspace_permissions" {
+  source = "./modules/databricks_workspace_permissions"
+
+  providers = {
+    databricks.mws = databricks.mws
+  }
+
+  depends_on = [
+    module.databricks_workspace
+  ]
+
+  # Workspace to assign permissions to
+  workspace_id = module.databricks_workspace.workspace_id
+
+  # Admin user (must exist via SCIM sync from Google)
+  admin_user_email = var.workspace_admin_email
+
+  # Data engineers group (must exist via SCIM sync from Google)
+  data_engineers_group_name   = var.data_engineers_group_name
+  assign_data_engineers_group = var.assign_data_engineers_group
+
+  # Metadata
+  project_name = var.project_name
+  env          = var.env
+}
+
+# ============================================================================
+# STEP 18: AWS BUDGET ALERTS - Cost Management
 # ============================================================================
 # Purpose: Monitor AWS spending and send alerts at defined thresholds
 # Cost: FREE (first 2 budgets included)

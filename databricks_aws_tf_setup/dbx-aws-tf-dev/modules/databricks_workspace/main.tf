@@ -74,8 +74,8 @@ resource "databricks_mws_workspaces" "workspace" {
   aws_region = var.aws_region
 
   # Workspace naming
-  workspace_name = var.workspace_name # User-facing display name
-  # deployment_name = var.deployment_name # Commented: requires account-level deployment name prefix configuration
+  workspace_name  = var.workspace_name  # User-facing display name
+  deployment_name = var.deployment_name # Globally unique infrastructure identifier (format: <project>-<env>-<region>)
 
   # Infrastructure dependencies - IDs from previous modules
   credentials_id           = var.credentials_id           # From databricks_storage_config module (mws_credentials)

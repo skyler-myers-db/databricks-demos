@@ -56,7 +56,7 @@ resource "databricks_metastore" "this" {
   # If you wanted metastore-level storage (NOT recommended):
   # storage_root = "s3://${var.metastore_bucket}/metastore"
 
-  force_destroy = var.env == "dev" ? true : false
+  force_destroy = var.env != "prod" && var.env != "-prod" ? true : false
 }
 
 # Data access configuration for metastore (uses same credentials as workspace)

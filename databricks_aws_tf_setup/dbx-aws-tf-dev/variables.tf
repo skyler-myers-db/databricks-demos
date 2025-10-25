@@ -153,3 +153,30 @@ variable "admin_email" {
   default     = "skyler@entrada.ai"
   description = "Administrator email address for alerts and notifications"
 }
+
+# ============================================================================
+# User Provisioning Variables
+# ============================================================================
+
+variable "workspace_admin_email" {
+  type        = string
+  default     = "skyler@entrada.ai"
+  description = "Email of user to assign as workspace admin (must exist via Google SCIM sync)"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.workspace_admin_email))
+    error_message = "Must be a valid email address format."
+  }
+}
+
+variable "data_engineers_group_name" {
+  type        = string
+  default     = "data_engineers"
+  description = "Name of the data engineers group in Google Workspace (synced via SCIM)"
+}
+
+variable "assign_data_engineers_group" {
+  type        = bool
+  default     = true
+  description = "Whether to assign the data_engineers group to the workspace"
+}

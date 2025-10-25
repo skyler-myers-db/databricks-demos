@@ -145,6 +145,35 @@ output "pricing_tier" {
 }
 
 # ============================================================================
+# User Provisioning Outputs
+# ============================================================================
+output "workspace_service_principal_id" {
+  description = "Service principal application ID for workspace automation"
+  value       = module.workspace_service_principal.service_principal_id
+}
+
+output "workspace_service_principal_client_id" {
+  description = "OAuth client ID for workspace provider (use in terraform provider config)"
+  value       = module.workspace_service_principal.oauth_client_id
+}
+
+output "workspace_service_principal_client_secret" {
+  description = "OAuth client secret for workspace provider (SENSITIVE - store securely)"
+  value       = module.workspace_service_principal.oauth_client_secret
+  sensitive   = true
+}
+
+output "workspace_admin_user" {
+  description = "Workspace admin user email"
+  value       = module.workspace_permissions.admin_user_email
+}
+
+output "data_engineers_group_name" {
+  description = "Display name of data_engineers group (from SCIM sync)"
+  value       = module.workspace_permissions.data_engineers_group_name
+}
+
+# ============================================================================
 # Quick Start Output
 # ============================================================================
 output "quick_start_guide" {

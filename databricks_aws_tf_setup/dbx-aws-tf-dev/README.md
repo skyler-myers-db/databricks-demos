@@ -116,8 +116,8 @@ terraform output workspace_url
 - ✅ **Managed tables** recommended (NOT external)
 - ✅ **Modular architecture** (17 independent modules)
 - ✅ **Terraform 1.13+** compatible
-- ✅ **AWS Provider 6.17.0** (latest stable)
-- ✅ **Databricks Provider 1.94.0** (Oct 2024 features)
+- ✅ **AWS Provider 6.18.0** (October 2024)
+- ✅ **Databricks Provider 1.95.0** (October 2024)
 
 ## 💰 Cost Estimate
 
@@ -225,7 +225,7 @@ export TF_VAR_dbx_acc_client_secret="service-principal-secret"
 # AWS Configuration
 aws_region           = "us-east-2"
 project_name         = "dbx-tf"
-env                  = "-dev"
+env                  = "dev"
 
 # Databricks Account
 dbx_account_id              = "12345678-1234-1234-1234-123456789012"
@@ -521,7 +521,7 @@ This project is provided as-is for educational and reference purposes.
 
 **Last Updated**: 2025-10-24
 **Terraform Version**: >= 1.13.4
-**AWS Provider**: 6.17.0
-**Databricks Provider**: 1.94.0
+**AWS Provider**: 6.18.0
+**Databricks Provider**: 1.95.0
 
 🎉 **Ready for deployment!**

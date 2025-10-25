@@ -13,8 +13,9 @@
  * Permissions Granted (Policy 1):
  * - S3: GetObject, PutObject, DeleteObject on /unity-catalog/* paths
  * - S3: ListBucket, GetBucketLocation on bucket root
- * - KMS: Decrypt, Encrypt, GenerateDataKey* for encrypted buckets
+ * - KMS: Decrypt, Encrypt, GenerateDataKey* for encrypted buckets (if enabled)
  * - STS: AssumeRole for self-assuming role pattern
+ * - IAM: GetRole, GetRolePolicy, ListRolePolicies, ListAttachedRolePolicies (for validation)
  *
  * Permissions Granted (Policy 2 - Optional):
  * - S3: GetBucketNotification, PutBucketNotification
@@ -92,6 +93,23 @@ data "aws_iam_policy_document" "databricks_unity_catalog_access" {
     effect = "Allow"
     actions = [
       "sts:AssumeRole"
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/databricks/${var.role_name}"
+    ]
+  }
+
+  # Statement 5: IAM Read permissions for Unity Catalog data access validation
+  # CRITICAL: Databricks needs these to validate the IAM role configuration
+  # when creating databricks_metastore_data_access resource
+  statement {
+    sid    = "UnityIAMReadPermissions"
+    effect = "Allow"
+    actions = [
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies"
     ]
     resources = [
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/databricks/${var.role_name}"
@@ -284,6 +302,12 @@ output "configuration_status" {
       ] : ["KMS encryption not configured"]
       sts_operations = [
         "sts:AssumeRole (self-assuming role pattern)"
+      ]
+      iam_operations = [
+        "iam:GetRole (validate role exists)",
+        "iam:GetRolePolicy (check inline policies)",
+        "iam:ListRolePolicies (list attached policies)",
+        "iam:ListAttachedRolePolicies (verify policy attachments)"
       ]
       file_events = var.enable_file_events ? [
         "S3 bucket notifications",

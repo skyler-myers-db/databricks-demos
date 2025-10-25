@@ -54,7 +54,7 @@ resource "aws_s3_bucket" "databricks_root" {
 
   # Prevent accidental deletion in production
   # Set to false in dev/test environments if needed
-  force_destroy = var.env == "prod" ? false : true
+  force_destroy = var.env != "prod" && var.env != "-prod" ? true : false
 
   tags = {
     Name               = "databricks-root-${var.project_name}-${var.env}"
@@ -63,8 +63,10 @@ resource "aws_s3_bucket" "databricks_root" {
     DataClassification = "Confidential"
   }
 
+  # CRITICAL: Only prevent destroy in production environments
+  # Dev/staging environments should allow destruction for testing
   lifecycle {
-    prevent_destroy = true # CRITICAL: Protects against accidental data loss
+    prevent_destroy = false # Set to true in production via override
   }
 }
 
