@@ -33,34 +33,33 @@ provider "databricks" {
 }
 
 # ============================================================================
-# WORKSPACE PROVIDER - Uncomment after service principal is created
+# WORKSPACE PROVIDER - Uses Service Principal OAuth Credentials
 # ============================================================================
 # This provider uses the service principal created by Terraform to manage
-# workspace-level resources (catalogs, external locations, schemas, etc.)
+# workspace-level resources (cluster policies, grants, catalogs, etc.)
 #
-# SETUP STEPS:
-# 1. Run: terraform apply (creates service principal with OAuth credentials)
-# 2. Get credentials: terraform output workspace_service_principal_client_secret
-# 3. Uncomment the provider below and fill in the credentials
-# 4. Run: terraform apply again (now you can manage workspace resources)
+# SINGLE-RUN DEPLOYMENT:
+# The provider references outputs from the workspace_service_principal module.
+# Terraform will automatically create the service principal first, then use
+# its credentials for workspace-level resources via proper dependency chains.
 #
-# ALTERNATIVE: Use terraform_remote_state to reference outputs from this root module
+# The workspace provider is ALWAYS enabled. Resources that depend on it
+# (cluster_policies, catalog_grants) have explicit depends_on to ensure
+# the service principal exists before the provider is used.
 # ============================================================================
 
-# provider "databricks" {
-#   alias         = "workspace"
-#   host          = module.databricks_workspace.workspace_url
-#   client_id     = module.workspace_service_principal.oauth_client_id
-#   client_secret = module.workspace_service_principal.oauth_client_secret
-#   auth_type     = "oauth-m2m"
-# }
+provider "databricks" {
+  alias         = "workspace"
+  host          = module.databricks_workspace.workspace_url
+  client_id     = module.workspace_service_principal.oauth_client_id
+  client_secret = module.workspace_service_principal.oauth_client_secret
+  auth_type     = "oauth-m2m"
+}
 
-# Example usage of workspace provider:
-# resource "databricks_catalog" "main" {
-#   provider = databricks.workspace
-#   name     = "main"
-#   comment  = "Main production catalog"
-#   properties = {
-#     purpose = "production"
-#   }
-# }
+provider "databricks" {
+  alias         = "workspace_admin"
+  host          = module.databricks_workspace.workspace_url
+  client_id     = var.dbx_acc_client_id
+  client_secret = var.dbx_acc_client_secret
+  auth_type     = "oauth-m2m"
+}

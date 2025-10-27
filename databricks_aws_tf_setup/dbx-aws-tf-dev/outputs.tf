@@ -174,6 +174,107 @@ output "data_engineers_group_name" {
 }
 
 # ============================================================================
+# Unity Catalog Storage Outputs
+# ============================================================================
+output "unity_catalog_storage_bucket" {
+  description = "S3 bucket name for Unity Catalog storage"
+  value       = module.unity_catalog_storage.bucket_name
+}
+
+output "unity_catalog_storage_bucket_arn" {
+  description = "S3 bucket ARN for Unity Catalog storage"
+  value       = module.unity_catalog_storage.bucket_arn
+}
+
+# ============================================================================
+# Job Runner Service Principal Outputs
+# ============================================================================
+output "job_runner_sp_id" {
+  description = "Job runner service principal ID"
+  value       = module.job_runner_service_principal.service_principal_id
+}
+
+output "job_runner_sp_application_id" {
+  description = "Job runner service principal application ID (for Asset Bundles)"
+  value       = module.job_runner_service_principal.service_principal_application_id
+}
+
+output "job_runner_client_id" {
+  description = "OAuth client ID for job runner (for CI/CD pipelines)"
+  value       = module.job_runner_service_principal.oauth_client_id
+}
+
+output "job_runner_client_secret" {
+  description = "OAuth client secret for job runner (SENSITIVE - use in CI/CD)"
+  value       = module.job_runner_service_principal.oauth_client_secret
+  sensitive   = true
+}
+
+# ============================================================================
+# Unity Catalog Storage Credential Outputs
+# ============================================================================
+output "unity_catalog_storage_credential_name" {
+  description = "Name of the Unity Catalog storage credential (reusable)"
+  value       = module.unity_catalog_storage_credential.storage_credential_name
+}
+
+output "unity_catalog_external_location_url" {
+  description = "URL of the Unity Catalog root external location"
+  value       = module.unity_catalog_storage_credential.external_location_url
+}
+
+# ============================================================================
+# Catalog Outputs
+# ============================================================================
+output "datapact_catalog_name" {
+  description = "Name of the datapact catalog"
+  value       = module.datapact_catalog.catalog_name
+}
+
+output "datapact_catalog_storage_root" {
+  description = "S3 URL for datapact catalog managed storage"
+  value       = module.datapact_catalog.storage_root
+}
+
+# ============================================================================
+# Cluster Policies Outputs
+# ============================================================================
+output "data_engineering_policy_id" {
+  description = "ID of the data engineering cluster policy"
+  value       = module.cluster_policies.data_engineering_policy_id
+}
+
+output "analyst_policy_id" {
+  description = "ID of the analyst cluster policy"
+  value       = module.cluster_policies.analyst_policy_id
+}
+
+output "admin_policy_id" {
+  description = "ID of the admin cluster policy"
+  value       = module.cluster_policies.admin_policy_id
+}
+
+output "cluster_policies_summary" {
+  description = "Summary of cluster policies"
+  value       = module.cluster_policies.policy_summary
+}
+
+# ============================================================================
+# Catalog Grants Outputs
+# ============================================================================
+output "catalog_grants_summary" {
+  description = "Summary of catalog grants configured"
+  value       = module.catalog_grants.catalog_grants_summary
+  sensitive   = true
+}
+
+output "principals_with_catalog_access" {
+  description = "List of principals with access to datapact catalog"
+  value       = module.catalog_grants.principals_with_access
+  sensitive   = true
+}
+
+# ============================================================================
 # Quick Start Output
 # ============================================================================
 output "quick_start_guide" {

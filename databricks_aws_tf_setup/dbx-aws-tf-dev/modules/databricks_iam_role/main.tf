@@ -6,7 +6,7 @@
  * This role is used for BOTH workspace provisioning AND Unity Catalog storage access.
  *
  * Key Features:
- * - Trust policy for Databricks AWS account (414351767826) - workspace provisioning
+ * - Trust policy for Databricks Unity Catalog role (414351767826)
  * - External ID condition using Databricks account ID (prevents confused deputy)
  * - Ready for S3, KMS, and EC2 policy attachments
  *
@@ -25,31 +25,51 @@
 data "aws_caller_identity" "current" {}
 
 # IAM role for Databricks cross-account access
+# SECURITY: Uses self-assuming trust policy per official Databricks docs
+# Per: https://docs.databricks.com/aws/storage/storage-configuration.html
+locals {
+  databricks_trust_principal = "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+  account_root_principal     = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+  self_role_arn              = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/databricks/${var.role_name}"
+}
+
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    sid     = "DatabricksAndSelfAssume"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type = "AWS"
+      identifiers = [
+        local.databricks_trust_principal,
+        local.account_root_principal
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "sts:ExternalId"
+      values   = [var.dbx_account_id]
+    }
+
+    condition {
+      test     = "ForAnyValue:StringEquals"
+      variable = "aws:PrincipalArn"
+      values = [
+        local.databricks_trust_principal,
+        local.self_role_arn
+      ]
+    }
+  }
+}
+
 resource "aws_iam_role" "databricks_storage" {
   name        = var.role_name
   description = "Databricks cross-account role for workspace provisioning and Unity Catalog storage access"
   path        = "/databricks/"
 
-  # Trust policy allowing Databricks AWS account to assume this role
-  # This is the standard cross-account trust policy for Databricks
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowDatabricksToAssumeRole"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::414351767826:root"
-        }
-        Action = "sts:AssumeRole"
-        Condition = {
-          StringEquals = {
-            "sts:ExternalId" = var.dbx_account_id
-          }
-        }
-      }
-    ]
-  })
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
 
   # Maximum session duration for assumed role
   max_session_duration = 3600 # 1 hour (default)
@@ -58,8 +78,8 @@ resource "aws_iam_role" "databricks_storage" {
     Name                = var.role_name
     Purpose             = "Databricks cross-account storage access"
     DatabricksWorkspace = var.workspace_name
-    SecurityScope       = "Databricks Unity Catalog access"
-    TrustPrincipal      = "414351767826"
+    SecurityScope       = "Databricks Unity Catalog workspace root storage"
+    TrustPrincipal      = "unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL + Self-assuming"
   }
 }
 
@@ -104,13 +124,16 @@ output "cost_estimate" {
 output "configuration_status" {
   description = "Module configuration status and next steps"
   value = {
-    step_completed = "Step 2: IAM Role Created"
+    step_completed = "Step 2: IAM Role Created with Self-Assuming Trust Policy"
     trust_principals = [
-      "Databricks Unity Catalog: 414351767826",
-      "Self-assuming: ${data.aws_caller_identity.current.account_id}"
+      "Databricks Unity Catalog: arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL",
+      "Self-assuming: arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/databricks/${var.role_name}"
     ]
-    external_id     = "Configured with Databricks account ID"
+    external_id     = "Configured with Databricks account ID: ${var.dbx_account_id}"
+    security_model  = "Self-assuming role for Unity Catalog workspace root storage (per official Databricks docs)"
+    documentation   = "Per Databricks docs: https://docs.databricks.com/aws/storage/storage-configuration.html"
     next_step       = "Step 3: Attach S3 access policy to this role"
     policy_required = "IAM policy granting s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket on workspace root bucket"
+    note            = "Trust policy uses self-reference pattern as specified in official Databricks documentation"
   }
 }

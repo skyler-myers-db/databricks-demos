@@ -180,3 +180,99 @@ variable "assign_data_engineers_group" {
   default     = true
   description = "Whether to assign the data_engineers group to the workspace"
 }
+
+# ============================================================================
+# Unity Catalog and Data Storage Variables
+# ============================================================================
+
+variable "catalog_name" {
+  type        = string
+  default     = "datapact"
+  description = "Name of the Unity Catalog catalog to create"
+
+  validation {
+    condition     = can(regex("^[a-z0-9_]+$", var.catalog_name))
+    error_message = "Catalog name must contain only lowercase letters, numbers, and underscores."
+  }
+}
+
+variable "job_runner_sp_name" {
+  type        = string
+  default     = "job-runner"
+  description = "Name of the service principal for running jobs via Databricks Asset Bundles"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.job_runner_sp_name))
+    error_message = "Service principal name must contain only lowercase letters, numbers, and hyphens."
+  }
+}
+
+variable "force_destroy" {
+  type        = bool
+  default     = false
+  description = "Allow Terraform to destroy S3 buckets with contents (USE WITH EXTREME CAUTION in production)"
+}
+
+# ============================================================================
+# Cluster Policies Variables
+# ============================================================================
+
+variable "cost_center" {
+  type        = string
+  default     = "data-platform"
+  description = "Cost center for tagging and chargeback"
+}
+
+variable "cluster_policy_allowed_instance_types" {
+  type = list(string)
+  default = [
+    "m5.large",
+    "m5.xlarge",
+    "m5.2xlarge",
+    "m5.4xlarge",
+    "m5.8xlarge",
+    "r5.large",
+    "r5.xlarge",
+    "r5.2xlarge",
+    "r5.4xlarge",
+    "c5.xlarge",
+    "c5.2xlarge",
+    "c5.4xlarge",
+    "i3.xlarge",
+    "i3.2xlarge",
+    "i3.4xlarge"
+  ]
+  description = "List of allowed EC2 instance types for data engineering clusters"
+}
+
+variable "cluster_policy_default_instance_type" {
+  type        = string
+  default     = "m5.xlarge"
+  description = "Default EC2 instance type for data engineering clusters"
+}
+
+variable "cluster_policy_analyst_instance_types" {
+  type = list(string)
+  default = [
+    "m5.large",
+    "m5.xlarge",
+    "m5.2xlarge",
+    "r5.large",
+    "r5.xlarge",
+    "c5.large",
+    "c5.xlarge"
+  ]
+  description = "List of allowed EC2 instance types for analyst clusters"
+}
+
+variable "cluster_policy_analyst_default_instance_type" {
+  type        = string
+  default     = "m5.large"
+  description = "Default EC2 instance type for analyst clusters"
+}
+
+variable "catalog_owner_email" {
+  type        = string
+  description = "Email address of the catalog owner (typically the main admin user)"
+  sensitive   = true
+}

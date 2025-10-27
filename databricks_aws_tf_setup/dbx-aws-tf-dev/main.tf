@@ -336,26 +336,6 @@ module "databricks_cross_account_policy" {
   # Deployment type: Customer-managed VPC with default restrictions
 }
 
-# Step 12c: Wait for IAM policy propagation (AWS eventual consistency)
-# CRITICAL: Do not remove this resource!
-# AWS IAM changes take 30-120 seconds to propagate globally. Without this delay,
-# Databricks credential validation will fail on fresh deployments with:
-# "Failed credential validation checks: please use a valid cross account IAM role"
-resource "time_sleep" "wait_for_iam_propagation" {
-  depends_on = [
-    module.databricks_iam_role,
-    module.databricks_iam_policy,
-    module.databricks_cross_account_policy
-  ]
-
-  create_duration = "180s" # 3 minutes - validated minimum time for reliable deployment across all AWS regions
-
-  # Force recreation when IAM role changes (ensures fresh wait on role updates)
-  triggers = {
-    role_arn = module.databricks_iam_role.role_arn
-  }
-}
-
 # Step 13: Create Databricks storage configuration (Step 4 - Databricks account config)
 module "databricks_storage_config" {
   source = "./modules/databricks_storage_config"
@@ -370,8 +350,7 @@ module "databricks_storage_config" {
     module.databricks_s3_root,
     module.databricks_iam_role,
     module.databricks_iam_policy,
-    module.databricks_cross_account_policy,
-    time_sleep.wait_for_iam_propagation # CRITICAL: Must wait for IAM propagation
+    module.databricks_cross_account_policy
   ]
 
   # Configuration naming
@@ -645,6 +624,280 @@ module "workspace_permissions" {
   # Metadata
   project_name = var.project_name
   env          = var.env
+}
+
+resource "databricks_grants" "metastore_admins" {
+  provider  = databricks.workspace_admin
+  metastore = module.databricks_metastore.metastore_id
+
+  grant {
+    principal = module.workspace_service_principal.service_principal_id
+    privileges = [
+      "CREATE_CATALOG",
+      "CREATE_EXTERNAL_LOCATION",
+      "CREATE_STORAGE_CREDENTIAL"
+    ]
+  }
+
+  depends_on = [
+    module.workspace_service_principal,
+    module.workspace_permissions,
+    module.databricks_workspace
+  ]
+}
+
+# ============================================================================
+# STEP 17c: ACCOUNT ADMIN ASSIGNMENT
+# ============================================================================
+# Purpose: Assign admin user as account-level administrator
+# Scope: Account-level (mws) - full account administration rights
+#
+# PERMISSIONS GRANTED:
+# - Full account administration (create workspaces, metastores, etc.)
+# - Manage account-level groups and service principals
+# - Configure account settings and billing
+# - View audit logs and usage metrics
+#
+# WHY NEEDED:
+# - Provides human administrator access for account management
+# - Separate from workspace admin (different scope)
+# - Required for Unity Catalog administration
+# ============================================================================
+resource "databricks_mws_permission_assignment" "account_admin" {
+  provider     = databricks.mws
+  workspace_id = module.databricks_workspace.workspace_id
+  principal_id = data.databricks_user.account_admin.id
+  permissions  = ["ADMIN"]
+
+  depends_on = [
+    module.databricks_workspace
+  ]
+}
+
+# Data source to lookup the admin user (synced from Google SCIM)
+data "databricks_user" "account_admin" {
+  provider  = databricks.mws
+  user_name = var.workspace_admin_email
+}
+
+# ============================================================================
+# STEP 17d: UNITY CATALOG STORAGE BUCKET
+# ============================================================================
+# Purpose: S3 bucket for Unity Catalog managed table storage
+# Stores: Catalog data, managed tables, checkpoints, temporary files
+#
+# WHY NEEDED:
+# - Unity Catalog requires S3 bucket for managed table storage
+# - Separate from root bucket (root = workspace metadata, this = data)
+# - Encrypted with customer-managed KMS key
+# - Supports versioning and lifecycle policies
+# ============================================================================
+module "unity_catalog_storage" {
+  source = "./modules/databricks_unity_catalog_bucket"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  bucket_name           = "${var.project_name}-${var.env}-unity-catalog-storage"
+  force_destroy         = var.force_destroy
+  kms_key_arn           = module.kms.kms_key_arn
+  databricks_account_id = var.dbx_account_id
+  aws_account_id        = module.aws_account.account_id
+  aws_tags              = var.aws_tags
+  project_name          = var.project_name
+  env                   = var.env
+
+  depends_on = [
+    module.kms,
+    module.databricks_workspace
+  ]
+}
+
+# ============================================================================
+# STEP 17e: JOB RUNNER SERVICE PRINCIPAL
+# ============================================================================
+# Purpose: Service principal for running Databricks jobs via Asset Bundles
+# Scope: Account-level, workspace USER permissions (NOT admin)
+#
+# USE CASES:
+# - CI/CD pipelines deploying jobs via Databricks Asset Bundles
+# - Scheduled job execution
+# - Automated workflows
+#
+# PERMISSIONS:
+# - CAN: Run jobs, read/write data (via catalog grants), create clusters
+# - CANNOT: Manage users, create workspaces, modify account settings
+# ============================================================================
+module "job_runner_service_principal" {
+  source = "./modules/databricks_job_runner_service_principal"
+
+  providers = {
+    databricks.mws = databricks.mws
+  }
+
+  service_principal_name = var.job_runner_sp_name
+  workspace_id           = module.databricks_workspace.workspace_id
+  workspace_url          = module.databricks_workspace.workspace_url
+  project_name           = var.project_name
+  env                    = var.env
+
+  depends_on = [module.databricks_workspace]
+}
+
+# ============================================================================
+# STEP 17f: UNITY CATALOG STORAGE CREDENTIAL & EXTERNAL LOCATION
+# ============================================================================
+# Purpose: Reusable storage credential for Unity Catalog data bucket
+# Scope: ONE credential for the entire bucket (used by ALL catalogs)
+#
+# WHAT IT CREATES:
+# - IAM Role: Self-assuming with full S3/KMS/SNS/SQS permissions
+# - Storage Credential: Databricks object referencing IAM role
+# - External Location: Points to BUCKET ROOT (s3://bucket/)
+#
+# REUSABILITY:
+# - Storage credential can be used by multiple catalogs
+# - External location at bucket root allows any catalog to use it
+# - Each catalog gets its own subdirectory (datapact/, bronze/, silver/, etc.)
+# ============================================================================
+module "unity_catalog_storage_credential" {
+  source = "./modules/databricks_unity_catalog_storage_credential"
+
+  providers = {
+    databricks.workspace = databricks.workspace
+    aws                  = aws.dev
+  }
+
+  storage_credential_name = "${var.project_name}_${var.env}_unity_catalog_storage"
+  storage_bucket_name     = module.unity_catalog_storage.bucket_name
+  storage_bucket_arn      = module.unity_catalog_storage.bucket_arn
+  databricks_account_id   = var.dbx_account_id
+  aws_account_id          = module.aws_account.account_id
+  aws_region              = var.aws_region
+  assume_role_name        = var.aws_acc_switch_role
+  kms_key_arn             = module.kms.kms_key_arn
+  project_name            = var.project_name
+  env                     = var.env
+
+  depends_on = [
+    module.unity_catalog_storage,
+    module.databricks_metastore,
+    module.kms,
+    databricks_grants.metastore_admins
+  ]
+}
+
+# ============================================================================
+# STEP 17g: DATAPACT CATALOG
+# ============================================================================
+# Purpose: Unity Catalog for application data
+# Storage: s3://bucket/datapact/ (subdirectory in Unity Catalog bucket)
+#
+# ARCHITECTURE:
+# - Uses shared storage credential (created above)
+# - Uses shared external location (bucket root)
+# - Catalog's managed storage: s3://bucket/datapact/
+# - Tables created without LOCATION use this path automatically
+#
+# EXAMPLE:
+#   CREATE TABLE datapact.default.users (id INT, name STRING);
+#   -- Data stored at: s3://bucket/datapact/default/users/
+# ============================================================================
+module "datapact_catalog" {
+  source = "./modules/databricks_unity_catalog"
+
+  providers = {
+    databricks.workspace = databricks.workspace
+  }
+
+  catalog_name     = var.catalog_name
+  metastore_id     = module.databricks_metastore.metastore_id
+  storage_root_url = format("%s/%s", trimsuffix(module.unity_catalog_storage_credential.external_location_url, "/"), var.catalog_name)
+  project_name     = var.project_name
+  env              = var.env
+  assume_role_name = var.aws_acc_switch_role
+
+  depends_on = [
+    module.unity_catalog_storage_credential
+  ]
+}
+
+# ============================================================================
+# STEP 17h: CLUSTER POLICIES - Compute Governance
+# ============================================================================
+# Purpose: Define cluster policies for different user personas
+# Policies: data_engineering, analyst, admin
+#
+# SANDBOX ENVIRONMENT STRATEGY:
+# - Broad permissions for experimentation
+# - Cost guardrails (auto-termination, autoscaling limits)
+# - Spot instances for cost savings (~70% reduction)
+# - Intelligent instance type restrictions
+#
+# COST CONTROLS:
+# - Auto-termination: 30-120 minutes idle (prevents forgotten clusters)
+# - Autoscaling: Max 20 workers for data engineering, 8 for analysts
+# - Spot instances with ON_DEMAND fallback (high availability)
+# - Photon engine default (3-5x faster queries, lower costs)
+# ============================================================================
+module "cluster_policies" {
+  source = "./modules/databricks_cluster_policies"
+
+  providers = {
+    databricks = databricks.workspace
+  }
+
+  workspace_name                = "${var.project_name}-${var.env}-workspace"
+  env                           = var.env
+  cost_center                   = var.cost_center
+  allowed_instance_types        = var.cluster_policy_allowed_instance_types
+  default_instance_type         = var.cluster_policy_default_instance_type
+  analyst_instance_types        = var.cluster_policy_analyst_instance_types
+  analyst_default_instance_type = var.cluster_policy_analyst_default_instance_type
+
+  depends_on = [
+    module.databricks_workspace
+  ]
+}
+
+# ============================================================================
+# STEP 17i: CATALOG GRANTS - Unity Catalog Permissions
+# ============================================================================
+# Purpose: Grant permissions on datapact catalog to users and service principals
+# Principals:
+# - skyler@entrada.ai: ALL PRIVILEGES (owner)
+# - job-runner SP: ALL PRIVILEGES (for automation/DABs)
+# - data_engineers group: Broad CRUD permissions (sandbox)
+#
+# SANDBOX PERMISSIONS:
+# - CREATE SCHEMA, CREATE TABLE (experimentation)
+# - SELECT, MODIFY (read/write data)
+# - USE CATALOG, USE SCHEMA (access control)
+# - CREATE FUNCTION, CREATE VOLUME, EXECUTE
+#
+# SECURITY NOTE:
+# - Permissions at catalog + schema level
+# - data_engineers group synced from Google Workspace via SCIM
+# - Service principal for CI/CD automation
+# ============================================================================
+module "catalog_grants" {
+  source = "./modules/databricks_catalog_grants"
+
+  providers = {
+    databricks = databricks.workspace
+  }
+
+  catalog_name                 = var.catalog_name
+  catalog_owner_principal      = var.catalog_owner_email
+  job_runner_sp_application_id = module.job_runner_service_principal.service_principal_application_id
+  data_engineers_group_name    = var.data_engineers_group_name
+
+  depends_on = [
+    module.datapact_catalog,
+    module.job_runner_service_principal,
+    module.workspace_permissions
+  ]
 }
 
 # ============================================================================

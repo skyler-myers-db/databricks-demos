@@ -1,0 +1,246 @@
+# ============================================================================
+# DATABRICKS ON AWS - TERRAFORM CONFIGURATION
+# ============================================================================
+# Copy this file to terraform.tfvars and fill in your specific values
+# NEVER commit terraform.tfvars to version control (it contains secrets)
+# ============================================================================
+
+# ============================================================================
+# CORE CONFIGURATION
+# ============================================================================
+
+# Project identifier - used in resource naming
+# Example: "dbx-tf", "databricks-platform", "analytics-platform"
+project_name = "dbx-tf"
+
+# Environment suffix - appended to resource names
+# Examples: "-dev", "-staging", "-prod"
+# Note: Include leading hyphen for proper naming
+env = "-dev"
+
+# AWS region for all resources
+# Must support Databricks E2 architecture
+# Recommended: us-east-1, us-east-2, us-west-2, eu-west-1
+aws_region = "us-east-2"
+
+# ============================================================================
+# DATABRICKS ACCOUNT CONFIGURATION
+# ============================================================================
+
+# Databricks account ID
+# Find in: Databricks Account Console → Settings → Account ID
+# Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (UUID)
+dbx_account_id = "12345678-1234-1234-1234-123456789abc"
+
+# Service principal OAuth credentials (account admin)
+# Create in: Databricks Account Console → User Management → Service Principals
+# Required permissions: Account Admin
+dbx_acc_client_id     = "abcd1234-5678-90ab-cdef-1234567890ab"
+dbx_acc_client_secret = "your-service-principal-secret-here"  # SENSITIVE
+
+# Optional: Pre-existing network configuration ID
+# Leave as null to create new network configuration
+# Only use if network already registered with Databricks
+dbx_network_id = null
+
+# ============================================================================
+# UNITY CATALOG CONFIGURATION
+# ============================================================================
+
+# Metastore owner email (must be Databricks account admin)
+# This user will have full control over the Unity Catalog metastore
+dbx_metastore_owner_email = "admin@yourdomain.com"  # SENSITIVE
+
+# Catalog configuration
+# Catalog name must be lowercase, alphanumeric, underscores only
+catalog_name = "datapact"
+
+# Catalog owner (can be same as metastore owner)
+catalog_owner_email = "admin@yourdomain.com"
+
+# ============================================================================
+# USER AND GROUP MANAGEMENT
+# ============================================================================
+
+# Admin user email (receives alerts and has admin access)
+admin_email = "admin@yourdomain.com"
+
+# Workspace admin (assigned workspace admin permissions)
+workspace_admin_email = "admin@yourdomain.com"
+
+# Data engineers group name (synced via SCIM from IdP)
+# This group must exist in your identity provider (Google Workspace, Okta, etc.)
+data_engineers_group_name = "data_engineers"
+
+# Whether to assign data_engineers group to workspace
+# Set to false if group doesn't exist yet in SCIM
+assign_data_engineers_group = true
+
+# Service principal name for job automation (CI/CD, DABs)
+job_runner_sp_name = "job-runner-sp"
+
+# ============================================================================
+# AWS ACCOUNT CREATION
+# ============================================================================
+
+# Email address for new AWS account
+# Must be globally unique (not used by any other AWS account)
+# Format: aws-databricks-dev@yourdomain.com
+account_email = "aws-databricks-dev@yourdomain.com"
+
+# AWS Organizations Organizational Unit ID
+# Find in: AWS Organizations Console → Organizational Units
+# Format: ou-xxxx-yyyyyyyy or r-xxxx (root)
+parent_ou_id = "ou-xxxx-yyyyyyyy"
+
+# IAM role to assume in new account (default is usually correct)
+# This role is automatically created by AWS Organizations
+aws_acc_switch_role = "OrganizationAccountAccessRole"
+
+# ============================================================================
+# NETWORK CONFIGURATION
+# ============================================================================
+
+# VPC CIDR block
+# Recommendations:
+# - Dev/Test: 10.0.0.0/24 (256 IPs)
+# - Production: 10.0.0.0/16 (65,536 IPs)
+# - Large Production: 10.0.0.0/12 (1,048,576 IPs)
+vpc_cidr_block = "10.0.0.0/16"
+
+# Number of subnet pairs (private + public) to create
+# Each pair is in a different AZ for high availability
+# Minimum: 2 (Databricks requirement)
+# Maximum: 6 (practical limit)
+# Recommendation: 2 for dev, 3+ for production
+subnet_count = 2
+
+# Private subnet sizing
+# Number of bits to add to VPC CIDR
+# Examples with /16 VPC:
+# - 3 = /19 subnets (8,192 IPs each)
+# - 4 = /20 subnets (4,096 IPs each)
+# - 5 = /21 subnets (2,048 IPs each)
+private_subnet_newbits = 3
+
+# Public subnet sizing (for NAT gateways)
+# Examples with /16 VPC:
+# - 4 = /20 subnets (4,096 IPs each)
+# - 5 = /21 subnets (2,048 IPs each)
+public_subnet_newbits = 4
+
+# ============================================================================
+# COST MANAGEMENT
+# ============================================================================
+
+# Monthly AWS infrastructure budget (USD)
+# Covers: VPC, NAT, endpoints, storage, GuardDuty, Config
+# Does not include: Databricks compute (DBUs)
+# Recommendations:
+# - Dev: $200-500
+# - Production: $500-2000
+monthly_budget_limit = 500
+
+# Monthly DBU budget
+# Databricks Units consumed by compute
+# Recommendations:
+# - Dev: 500-1000 DBUs
+# - Production: 2000-10000 DBUs
+dbu_budget_limit = 1000
+
+# Create separate DBU budget alert
+# Set to false if you only want AWS infrastructure budget
+create_dbu_budget = true
+
+# Email addresses for budget alerts
+# Receives notifications at 50%, 80%, 100%, 120% thresholds
+budget_alert_emails = [
+  "admin@yourdomain.com",
+  "finance@yourdomain.com"
+]
+
+# Budget start date (YYYY-MM-DD)
+# Typically set to first day of current or next month
+budget_start_date = "2025-11-01"
+
+# ============================================================================
+# CLUSTER POLICY CONFIGURATION
+# ============================================================================
+
+# Cost center tag for cluster costs
+cost_center = "engineering"
+
+# Data engineering policy: Allowed EC2 instance types
+# Recommendations: General-purpose (m5, m6i) or compute-optimized (c5, c6i)
+cluster_policy_allowed_instance_types = [
+  "m5.xlarge",   # 4 vCPU, 16 GB RAM
+  "m5.2xlarge",  # 8 vCPU, 32 GB RAM
+  "m5.4xlarge",  # 16 vCPU, 64 GB RAM
+  "m5.8xlarge"   # 32 vCPU, 128 GB RAM
+]
+
+# Data engineering policy: Default instance type
+cluster_policy_default_instance_type = "m5.2xlarge"
+
+# Analyst policy: Allowed instance types (smaller, SQL-optimized)
+cluster_policy_analyst_instance_types = [
+  "m5.large",    # 2 vCPU, 8 GB RAM
+  "m5.xlarge",   # 4 vCPU, 16 GB RAM
+  "m5.2xlarge"   # 8 vCPU, 32 GB RAM
+]
+
+# Analyst policy: Default instance type
+cluster_policy_analyst_default_instance_type = "m5.xlarge"
+
+# ============================================================================
+# RESOURCE MANAGEMENT
+# ============================================================================
+
+# Force destroy for S3 buckets
+# WARNING: If true, S3 buckets will be deleted even if they contain data
+# Recommendations:
+# - Dev/Test: true (easier cleanup)
+# - Production: false (prevent accidental data loss)
+force_destroy = false
+
+# ============================================================================
+# RESOURCE TAGGING
+# ============================================================================
+
+# Common tags applied to all AWS resources
+# Use for cost allocation, compliance, and organization
+aws_tags = {
+  Project     = "Databricks"
+  Environment = "Development"
+  ManagedBy   = "Terraform"
+  CostCenter  = "Engineering"
+  Owner       = "admin@yourdomain.com"
+  Repository  = "databricks-aws-terraform"
+}
+
+# ============================================================================
+# CONFIGURATION NOTES
+# ============================================================================
+#
+# SENSITIVE VALUES:
+# - dbx_acc_client_secret
+# - dbx_metastore_owner_email
+# - All email addresses (personal information)
+#
+# REQUIRED VALUES:
+# - dbx_account_id
+# - dbx_acc_client_id
+# - dbx_acc_client_secret
+# - dbx_metastore_owner_email
+# - account_email
+# - parent_ou_id
+# - admin_email
+#
+# VALIDATION:
+# After filling in values, run:
+#   terraform validate
+#
+# This will check for syntax errors and validate variable constraints
+# (e.g., email formats, CIDR blocks, subnet counts)
+#
+# ============================================================================

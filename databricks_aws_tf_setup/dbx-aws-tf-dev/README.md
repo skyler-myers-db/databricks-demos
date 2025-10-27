@@ -1,341 +1,680 @@
-# Databricks AWS Terraform Setup
+# Databricks on AWS - Enterprise Terraform Infrastructure# Databricks AWS Terraform Setup
 
-Production-ready **Databricks workspace** deployment on AWS Premium tier with modern best practices.
 
-## 🚀 Quick Start
 
-```bash
+[![Terraform](https://img.shields.io/badge/Terraform-≥1.13.4-623CE4?logo=terraform)](https://www.terraform.io/)Production-ready **Databricks workspace** deployment on AWS Premium tier with modern best practices.
+
+[![Databricks](https://img.shields.io/badge/Databricks-~>1.95.0-FF3621?logo=databricks)](https://registry.terraform.io/providers/databricks/databricks/latest)
+
+[![AWS](https://img.shields.io/badge/AWS-~>6.18.0-FF9900?logo=amazon-aws)](https://registry.terraform.io/providers/hashicorp/aws/latest)## 🚀 Quick Start
+
+
+
+Production-ready Terraform infrastructure for deploying Databricks on AWS with Unity Catalog, automated governance, and enterprise security controls.```bash
+
 # 1. Set up credentials
-export AWS_ACCESS_KEY_ID="your-aws-key"
+
+## 🎯 Overviewexport AWS_ACCESS_KEY_ID="your-aws-key"
+
 export AWS_SECRET_ACCESS_KEY="your-aws-secret"
-export TF_VAR_dbx_acc_client_id="databricks-service-principal-id"
+
+Complete, modular Terraform configuration for Databricks E2 workspaces on AWS Premium tier featuring:export TF_VAR_dbx_acc_client_id="databricks-service-principal-id"
+
 export TF_VAR_dbx_acc_client_secret="databricks-service-principal-secret"
-export TF_VAR_dbx_account_id="databricks-account-uuid"
 
-# 2. Configure variables
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
+- ✅ **Unity Catalog** - Centralized data governance and access controlexport TF_VAR_dbx_account_id="databricks-account-uuid"
 
-# 3. Deploy infrastructure
+- ✅ **Single-Run Deployment** - Fully automated, zero manual intervention
+
+- ✅ **Enterprise Security** - KMS encryption, VPC isolation, GuardDuty, AWS Config# 2. Configure variables
+
+- ✅ **Cost Optimization** - Auto-termination, spot instances, budget alertscp terraform.tfvars.example terraform.tfvars
+
+- ✅ **Production-Ready** - 29 modular components, extensively tested# Edit terraform.tfvars with your values
+
+
+
+### Deployment Results# 3. Deploy infrastructure
+
 terraform init
-terraform plan
-terraform apply
 
-# 4. Access workspace
-terraform output workspace_url
-# Open URL and login with account admin credentials
-```
+| Component | Quantity | Purpose |terraform plan
 
-## 📋 What Gets Deployed
+|-----------|----------|---------|terraform apply
 
-### Infrastructure (17 Modules)
+| **AWS Account** | 1 | Dedicated account in AWS Organizations |
 
-**Networking (9 modules)**
+| **VPC** | 1 | Multi-AZ with flow logs and DNS |# 4. Access workspace
+
+| **Subnets** | 4 | 2 private + 2 public across 2 AZs |terraform output workspace_url
+
+| **NAT Gateways** | 2 | High availability (one per AZ) |# Open URL and login with account admin credentials
+
+| **Security Groups** | 2 | Workspace + VPC endpoints |```
+
+| **VPC Endpoints** | 2 | S3 Gateway + EC2 Interface |
+
+| **Databricks Workspace** | 1 | E2 Premium tier with Unity Catalog |## 📋 What Gets Deployed
+
+| **Unity Catalog Metastore** | 1 | Centralized data governance |
+
+| **Catalogs** | 1 | datapact catalog with default schema |### Infrastructure (17 Modules)
+
+| **Cluster Policies** | 3 | Data engineering, analyst, admin |
+
+| **Service Principals** | 2 | Terraform + job runner automation |**Networking (9 modules)**
+
 - VPC with DNS resolution and flow logs
-- Private subnets (/26, Databricks minimum) across multiple AZs
+
+**Estimated Cost:** $230-500/month for dev/sandbox environment- Private subnets (/26, Databricks minimum) across multiple AZs
+
 - Public subnets (/28) for NAT Gateways only
-- Internet Gateway for public subnet egress
+
+---- Internet Gateway for public subnet egress
+
 - NAT Gateways (one per AZ for high availability)
-- Route tables (private → NAT, public → IGW)
+
+## 🚀 Quick Start- Route tables (private → NAT, public → IGW)
+
 - Security Groups (intra-cluster + HTTPS egress)
-- VPC Endpoints (S3 + STS gateway endpoints)
+
+### Prerequisites- VPC Endpoints (S3 + STS gateway endpoints)
+
 - Network ACLs (defense-in-depth stateless filtering)
 
-**Storage & IAM (4 modules)**
-- S3 root bucket (SSE-S3 encrypted, versioned)
+1. **AWS:** Account with Organizations access, AWS CLI configured
+
+2. **Databricks:** Account admin service principal credentials**Storage & IAM (4 modules)**
+
+3. **Tools:** Terraform ≥ 1.13.4, AWS CLI ≥ 2.x, Git- S3 root bucket (SSE-S3 encrypted, versioned)
+
 - IAM role with External ID (confused deputy prevention)
-- IAM storage policy (S3, KMS, STS, file events)
+
+### Deploy in 5 Steps- IAM storage policy (S3, KMS, STS, file events)
+
 - IAM compute policy (52 EC2 actions, Spot permissions)
 
-**Databricks Account (2 modules)**
-- Storage configuration (MWS credentials + storage)
+```bash
+
+# 1. Clone repository**Databricks Account (2 modules)**
+
+git clone <repo-url> && cd dbx-aws-tf-dev- Storage configuration (MWS credentials + storage)
+
 - Network configuration (VPC registration)
 
-**Data Governance (1 module)**
-- Unity Catalog metastore (NO storage_root, modern best practice)
+# 2. Create terraform.tfvars (see Configuration section)
 
-**Workspace (1 module)**
-- Databricks E2 workspace (Premium tier, Unity Catalog enabled)
+cp terraform.tfvars.example terraform.tfvars**Data Governance (1 module)**
 
-## 🏗️ Architecture
+# Edit with your values- Unity Catalog metastore (NO storage_root, modern best practice)
+
+
+
+# 3. Initialize Terraform**Workspace (1 module)**
+
+terraform init- Databricks E2 workspace (Premium tier, Unity Catalog enabled)
+
+
+
+# 4. Review plan## 🏗️ Architecture
+
+terraform plan -out=tfplan
 
 ```
-┌─────────────────────────────────────────────┐
-│      DATABRICKS CONTROL PLANE               │
-│   (Databricks-Managed AWS Account)          │
+
+# 5. Deploy (15-20 minutes)┌─────────────────────────────────────────────┐
+
+terraform apply tfplan│      DATABRICKS CONTROL PLANE               │
+
+```│   (Databricks-Managed AWS Account)          │
+
 │   - Web UI, Notebooks, SQL Editor           │
-│   - Unity Catalog Metadata ($0 cost)        │
+
+### Configuration│   - Unity Catalog Metadata ($0 cost)        │
+
 └──────────────────┬──────────────────────────┘
-                   │ Cross-Account IAM
+
+Create `terraform.tfvars`:                   │ Cross-Account IAM
+
                    │ (External ID Security)
-┌──────────────────▼──────────────────────────┐
-│      YOUR AWS ACCOUNT (Customer VPC)        │
-├─────────────────────────────────────────────┤
-│  VPC: 10.0.0.0/24 (customizable)            │
-│  ├─ Private Subnets: 2× /26 (Databricks)   │
+
+```hcl┌──────────────────▼──────────────────────────┐
+
+# Core Settings│      YOUR AWS ACCOUNT (Customer VPC)        │
+
+project_name = "dbx-tf"├─────────────────────────────────────────────┤
+
+env          = "-dev"│  VPC: 10.0.0.0/24 (customizable)            │
+
+aws_region   = "us-east-2"│  ├─ Private Subnets: 2× /26 (Databricks)   │
+
 │  ├─ Public Subnets: 2× /28 (NAT GW only)   │
-│  ├─ NAT Gateways: High availability         │
-│  ├─ Security Groups: Zero-trust egress      │
-│  └─ VPC Endpoints: S3 + STS (cost savings)  │
-│                                              │
+
+# Databricks Account│  ├─ NAT Gateways: High availability         │
+
+dbx_account_id        = "12345678-1234-1234-1234-123456789abc"│  ├─ Security Groups: Zero-trust egress      │
+
+dbx_acc_client_id     = "service-principal-client-id"│  └─ VPC Endpoints: S3 + STS (cost savings)  │
+
+dbx_acc_client_secret = "service-principal-secret"│                                              │
+
 │  S3 Root Bucket:                            │
-│  ├─ Cluster logs, notebooks, libraries      │
-│  ├─ SSE-S3 encryption (AES-256)            │
-│  └─ Versioning enabled                      │
-│                                              │
+
+# Unity Catalog│  ├─ Cluster logs, notebooks, libraries      │
+
+dbx_metastore_owner_email = "admin@yourdomain.com"│  ├─ SSE-S3 encryption (AES-256)            │
+
+catalog_name              = "datapact"│  └─ Versioning enabled                      │
+
+catalog_owner_email       = "admin@yourdomain.com"│                                              │
+
 │  Unity Catalog:                             │
-│  ├─ Regional metastore (no storage root)    │
-│  ├─ Catalog-level managed locations         │
-│  └─ Managed tables (optimized features)     │
-└─────────────────────────────────────────────┘
-```
 
-## 📊 Key Features
+# User Management│  ├─ Regional metastore (no storage root)    │
 
-### Security
-- ✅ **External ID** prevents confused deputy attacks
+admin_email                 = "admin@yourdomain.com"│  ├─ Catalog-level managed locations         │
+
+workspace_admin_email       = "admin@yourdomain.com"│  └─ Managed tables (optimized features)     │
+
+data_engineers_group_name   = "data_engineers"└─────────────────────────────────────────────┘
+
+assign_data_engineers_group = true```
+
+
+
+# AWS Account## 📊 Key Features
+
+account_email       = "aws-databricks-dev@yourdomain.com"
+
+parent_ou_id        = "ou-xxxx-yyyyyyyy"### Security
+
+aws_acc_switch_role = "arn:aws:iam::123456789012:role/OrganizationAccountAccessRole"- ✅ **External ID** prevents confused deputy attacks
+
 - ✅ **Zero-trust networking** (private subnets only)
-- ✅ **Defense-in-depth** (Security Groups + NACLs)
-- ✅ **Encryption at rest** (SSE-S3, KMS optional)
-- ✅ **Least-privilege IAM** policies
 
-### High Availability
+# Network- ✅ **Defense-in-depth** (Security Groups + NACLs)
+
+vpc_cidr_block         = "10.0.0.0/16"- ✅ **Encryption at rest** (SSE-S3, KMS optional)
+
+subnet_count           = 2- ✅ **Least-privilege IAM** policies
+
+private_subnet_newbits = 3  # /19 subnets
+
+public_subnet_newbits  = 4  # /20 subnets### High Availability
+
 - ✅ **Multi-AZ deployment** (minimum 2 AZs)
-- ✅ **NAT Gateway per AZ** (fault tolerance)
-- ✅ **Subnet redundancy** (automatic failover)
 
-### Cost Optimization
+# Cost Management- ✅ **NAT Gateway per AZ** (fault tolerance)
+
+monthly_budget_limit = 500- ✅ **Subnet redundancy** (automatic failover)
+
+dbu_budget_limit     = 1000
+
+budget_alert_emails  = ["admin@yourdomain.com"]### Cost Optimization
+
 - ✅ **VPC Endpoints** (avoid NAT Gateway charges for S3/STS)
-- ✅ **Auto-termination** (configurable idle timeout)
-- ✅ **Spot instances** support (60-90% savings)
-- ✅ **S3 Bucket Keys** (reduce KMS costs if using KMS)
 
-### Modern Best Practices
-- ✅ **Unity Catalog** without storage_root
-- ✅ **Catalog-level managed locations** (not metastore-level)
+# Tags- ✅ **Auto-termination** (configurable idle timeout)
+
+aws_tags = {- ✅ **Spot instances** support (60-90% savings)
+
+  Project     = "Databricks"- ✅ **S3 Bucket Keys** (reduce KMS costs if using KMS)
+
+  Environment = "Development"
+
+  ManagedBy   = "Terraform"### Modern Best Practices
+
+}- ✅ **Unity Catalog** without storage_root
+
+```- ✅ **Catalog-level managed locations** (not metastore-level)
+
 - ✅ **Managed tables** recommended (NOT external)
-- ✅ **Modular architecture** (17 independent modules)
+
+---- ✅ **Modular architecture** (17 independent modules)
+
 - ✅ **Terraform 1.13+** compatible
-- ✅ **AWS Provider 6.18.0** (October 2024)
+
+## 🏗️ Architecture- ✅ **AWS Provider 6.18.0** (October 2024)
+
 - ✅ **Databricks Provider 1.95.0** (October 2024)
 
-## 💰 Cost Estimate
-
-### Fixed Monthly Costs
-| Component     | Quantity | Unit Cost   | Monthly         |
-| ------------- | -------- | ----------- | --------------- |
-| NAT Gateway   | 2        | $0.045/hour | $65             |
-| NAT Transfer  | Variable | $0.045/GB   | ~$20            |
-| VPC Endpoints | 2        | $0.01/hour  | $14             |
-| S3 Storage    | Variable | $0.023/GB   | ~$23/TB         |
-| **Subtotal**  |          |             | **~$100/month** |
-
-### Variable Databricks Costs (DBU-based)
-| Workload     | DBU Rate  | Example Usage    | Monthly        |
-| ------------ | --------- | ---------------- | -------------- |
-| Jobs Compute | $0.15/DBU | 100 hrs × 2 DBUs | $30            |
-| All-Purpose  | $0.55/DBU | 40 hrs × 2 DBUs  | $44            |
-| SQL Compute  | $0.22/DBU | 80 hrs × 1 DBU   | $18            |
-| **Subtotal** |           |                  | **~$92/month** |
-
-**Total Estimate**: ~**$192/month** for moderate usage
-
-### Cost Reduction Tips
-1. Enable auto-termination (15-30 minutes)
-2. Use Spot instances for fault-tolerant workloads
-3. Set cluster policies (restrict instance types)
-4. Monitor DBU usage in billing dashboard
-5. Use VPC endpoints (included above, saves NAT costs)
-
-## 📁 Project Structure
-
 ```
-.
+
+AWS Organizations## 💰 Cost Estimate
+
+└── Databricks Dev Account
+
+    ├── VPC (10.0.0.0/16)### Fixed Monthly Costs
+
+    │   ├── Private Subnets (2 AZs)| Component     | Quantity | Unit Cost   | Monthly         |
+
+    │   │   └── Databricks Compute (EC2)| ------------- | -------- | ----------- | --------------- |
+
+    │   ├── Public Subnets (2 AZs)| NAT Gateway   | 2        | $0.045/hour | $65             |
+
+    │   │   └── NAT Gateways (HA)| NAT Transfer  | Variable | $0.045/GB   | ~$20            |
+
+    │   ├── Security Groups| VPC Endpoints | 2        | $0.01/hour  | $14             |
+
+    │   ├── Network ACLs| S3 Storage    | Variable | $0.023/GB   | ~$23/TB         |
+
+    │   └── VPC Endpoints (S3 + EC2)| **Subtotal**  |          |             | **~$100/month** |
+
+    │
+
+    ├── Databricks Workspace### Variable Databricks Costs (DBU-based)
+
+    │   ├── Premium Tier| Workload     | DBU Rate  | Example Usage    | Monthly        |
+
+    │   ├── Unity Catalog Enabled| ------------ | --------- | ---------------- | -------------- |
+
+    │   └── OAuth M2M Auth| Jobs Compute | $0.15/DBU | 100 hrs × 2 DBUs | $30            |
+
+    │| All-Purpose  | $0.55/DBU | 40 hrs × 2 DBUs  | $44            |
+
+    ├── Unity Catalog| SQL Compute  | $0.22/DBU | 80 hrs × 1 DBU   | $18            |
+
+    │   ├── Metastore (us-east-2)| **Subtotal** |           |                  | **~$92/month** |
+
+    │   ├── Storage Credential (IAM)
+
+    │   ├── External Location (S3)**Total Estimate**: ~**$192/month** for moderate usage
+
+    │   └── Catalog: datapact
+
+    │### Cost Reduction Tips
+
+    ├── Storage (S3 + KMS)1. Enable auto-termination (15-30 minutes)
+
+    │   ├── Workspace Root (DBFS)2. Use Spot instances for fault-tolerant workloads
+
+    │   └── Unity Catalog Data3. Set cluster policies (restrict instance types)
+
+    │4. Monitor DBU usage in billing dashboard
+
+    └── Security & Compliance5. Use VPC endpoints (included above, saves NAT costs)
+
+        ├── GuardDuty
+
+        ├── AWS Config## 📁 Project Structure
+
+        ├── VPC Flow Logs
+
+        └── Budget Alerts```
+
+```.
+
 ├── main.tf                         # Root module (16 deployment steps)
-├── variables.tf                    # Input variables with validation
-├── outputs.tf                      # Infrastructure outputs
-├── providers.tf                    # AWS + Databricks provider config
-├── versions.tf                     # Terraform version constraints
-├── terraform.tfvars                # User-specific values (gitignored)
-│
+
+**Key Principles:**├── variables.tf                    # Input variables with validation
+
+- Multi-AZ high availability├── outputs.tf                      # Infrastructure outputs
+
+- Private subnet compute isolation  ├── providers.tf                    # AWS + Databricks provider config
+
+- KMS encryption for all storage├── versions.tf                     # Terraform version constraints
+
+- Least privilege IAM roles├── terraform.tfvars                # User-specific values (gitignored)
+
+- Cost optimization built-in│
+
 ├── ARCHITECTURE.md                 # Detailed architecture documentation
-├── CROSS_ACCOUNT_SETUP.md          # IAM cross-account trust guide
+
+---├── CROSS_ACCOUNT_SETUP.md          # IAM cross-account trust guide
+
 ├── DEPLOYMENT_STEPS.md             # Step-by-step deployment guide
-├── COMPLETE_SETUP_SUMMARY.md       # Comprehensive reference
+
+## 📁 Repository Structure├── COMPLETE_SETUP_SUMMARY.md       # Comprehensive reference
+
 └── README.md                       # This file
-│
-└── modules/                        # 17 independent modules
-    ├── aws_vpc/                    # VPC with DNS and flow logs
-    ├── aws_subnets/                # Multi-AZ private/public subnets
-    ├── aws_internet_gateway/       # Internet access for public subnets
-    ├── aws_nat_gateway/            # NAT for private subnet egress
-    ├── aws_route_tables/           # Routing configuration
-    ├── aws_security_groups/        # Network security rules
-    ├── aws_vpc_endpoints/          # S3/STS gateway endpoints
-    ├── aws_network_acls/           # Stateless filtering
-    ├── aws_account/                # AWS account creation (optional)
-    ├── databricks_s3_root_bucket/  # Root storage bucket
-    ├── databricks_iam_role/        # Cross-account IAM role
-    ├── databricks_iam_policy/      # Storage permissions
-    ├── databricks_cross_account_policy/ # Compute permissions (52 EC2 actions)
-    ├── databricks_storage_config/  # MWS storage + credentials
-    ├── databricks_network_config/  # MWS network registration
-    ├── databricks_metastore/       # Unity Catalog metastore
-    └── databricks_workspace/       # Workspace creation
-```
 
-## 🔧 Prerequisites
+```│
 
-### Required Tools
-- **Terraform**: >= 1.13.4
+.└── modules/                        # 17 independent modules
+
+├── README.md                  # This file    ├── aws_vpc/                    # VPC with DNS and flow logs
+
+├── main.tf                    # Root module orchestration    ├── aws_subnets/                # Multi-AZ private/public subnets
+
+├── variables.tf               # Input variable declarations    ├── aws_internet_gateway/       # Internet access for public subnets
+
+├── outputs.tf                 # Output values    ├── aws_nat_gateway/            # NAT for private subnet egress
+
+├── providers.tf               # Provider configurations    ├── aws_route_tables/           # Routing configuration
+
+├── versions.tf                # Version constraints    ├── aws_security_groups/        # Network security rules
+
+├── terraform.tfvars           # Variable values (gitignored)    ├── aws_vpc_endpoints/          # S3/STS gateway endpoints
+
+├── .editorconfig              # Code style rules    ├── aws_network_acls/           # Stateless filtering
+
+│    ├── aws_account/                # AWS account creation (optional)
+
+├── docs/                      # Documentation    ├── databricks_s3_root_bucket/  # Root storage bucket
+
+│   ├── STYLE_GUIDE.md        # Code standards    ├── databricks_iam_role/        # Cross-account IAM role
+
+│   ├── ARCHITECTURE.md       # Detailed architecture    ├── databricks_iam_policy/      # Storage permissions
+
+│   ├── DEPLOYMENT_STEPS.md   # Deployment guide    ├── databricks_cross_account_policy/ # Compute permissions (52 EC2 actions)
+
+│   └── ...                   # Additional docs    ├── databricks_storage_config/  # MWS storage + credentials
+
+│    ├── databricks_network_config/  # MWS network registration
+
+└── modules/                   # 29 reusable modules    ├── databricks_metastore/       # Unity Catalog metastore
+
+    ├── aws_vpc/              # VPC with flow logs    └── databricks_workspace/       # Workspace creation
+
+    ├── aws_subnets/          # Multi-AZ subnets```
+
+    ├── databricks_workspace/ # E2 workspace
+
+    ├── databricks_metastore/ # Unity Catalog## 🔧 Prerequisites
+
+    ├── databricks_cluster_policies/  # Governance
+
+    └── ...                   # Other modules### Required Tools
+
+```- **Terraform**: >= 1.13.4
+
 - **AWS CLI**: >= 2.0 (for credential management)
-- **Git**: For version control
 
-### Required Credentials
+---- **Git**: For version control
 
-#### AWS Credentials
-```bash
-export AWS_ACCESS_KEY_ID="your-access-key"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_DEFAULT_REGION="us-east-2"  # Optional
+
+
+## 🔐 Security Features### Required Credentials
+
+
+
+### Encryption#### AWS Credentials
+
+- ✅ KMS customer-managed keys for S3```bash
+
+- ✅ EBS encryption enforced via AWS Configexport AWS_ACCESS_KEY_ID="your-access-key"
+
+- ✅ TLS 1.2+ for all communicationsexport AWS_SECRET_ACCESS_KEY="your-secret-key"
+
+- ✅ Terraform state encryptionexport AWS_DEFAULT_REGION="us-east-2"  # Optional
+
 ```
 
-Or configure via `~/.aws/credentials`:
-```ini
-[default]
-aws_access_key_id = your-access-key
+### Network Security
+
+- ✅ Private subnets for all computeOr configure via `~/.aws/credentials`:
+
+- ✅ Security groups (least privilege)```ini
+
+- ✅ Network ACLs (stateless firewall)[default]
+
+- ✅ VPC Flow Logs (30-day retention)aws_access_key_id = your-access-key
+
 aws_secret_access_key = your-secret-key
+
+### Monitoring```
+
+- ✅ GuardDuty (threat detection)
+
+- ✅ AWS Config (8 compliance rules)#### Databricks Credentials
+
+- ✅ CloudWatch Logs1. **Create Service Principal** (Account Console → User Management → Service Principals)
+
+- ✅ Budget alerts (4 thresholds)2. **Assign Account Admin** role
+
+3. **Generate OAuth Secret**
+
+### IAM Best Practices4. **Export credentials**:
+
+- ✅ Specific role ARNs (no `:root`)```bash
+
+- ✅ External ID conditionsexport TF_VAR_dbx_account_id="12345678-1234-1234-1234-123456789012"
+
+- ✅ Path-scoped permissionsexport TF_VAR_dbx_acc_client_id="service-principal-id"
+
+- ✅ No wildcard resourcesexport TF_VAR_dbx_acc_client_secret="service-principal-secret"
+
 ```
 
-#### Databricks Credentials
-1. **Create Service Principal** (Account Console → User Management → Service Principals)
-2. **Assign Account Admin** role
-3. **Generate OAuth Secret**
-4. **Export credentials**:
-```bash
-export TF_VAR_dbx_account_id="12345678-1234-1234-1234-123456789012"
-export TF_VAR_dbx_acc_client_id="service-principal-id"
-export TF_VAR_dbx_acc_client_secret="service-principal-secret"
-```
+---
 
 ## 📝 Configuration
 
+## 💰 Cost Management
+
 ### terraform.tfvars Example
-```hcl
+
+### Monthly Cost Estimate```hcl
+
 # AWS Configuration
-aws_region           = "us-east-2"
-project_name         = "dbx-tf"
-env                  = "dev"
 
-# Databricks Account
-dbx_account_id              = "12345678-1234-1234-1234-123456789012"
-dbx_metastore_owner_email   = "admin@company.com"  # Must be account admin
+| Component | Cost | Notes |aws_region           = "us-east-2"
 
-# Networking
-vpc_cidr_block              = "10.0.0.0/24"  # 256 IPs (demo size)
-subnet_count                = 2              # Number of AZs
-private_subnet_newbits      = 2              # /26 subnets (64 IPs, Databricks min)
-public_subnet_newbits       = 4              # /28 subnets (16 IPs, NAT GW only)
+|-----------|------|-------|project_name         = "dbx-tf"
 
-# Tags
-aws_tags = {
-  Project     = "Databricks-TF"
-  Environment = "Development"
-  ManagedBy   = "Terraform"
-  CostCenter  = "Engineering"
+| NAT Gateways | $65 | 2 × $0.045/hour |env                  = "dev"
+
+| NAT Data Transfer | $20-50 | Based on usage |
+
+| VPC Endpoints | $7 | EC2 interface |# Databricks Account
+
+| VPC Flow Logs | $5 | 30 days |dbx_account_id              = "12345678-1234-1234-1234-123456789012"
+
+| S3 Storage | $15-70 | Workspace + UC |dbx_metastore_owner_email   = "admin@company.com"  # Must be account admin
+
+| KMS | $1 | 1 key |
+
+| GuardDuty | $5-10 | Based on data volume |# Networking
+
+| AWS Config | $3 | 8 rules |vpc_cidr_block              = "10.0.0.0/24"  # 256 IPs (demo size)
+
+| Databricks Compute | $80-200 | 200-500 DBUs/month |subnet_count                = 2              # Number of AZs
+
+| EC2 Spot Instances | $30-100 | 70% discount |private_subnet_newbits      = 2              # /26 subnets (64 IPs, Databricks min)
+
+| **Total** | **$230-500** | Dev environment |public_subnet_newbits       = 4              # /28 subnets (16 IPs, NAT GW only)
+
+
+
+### Cost Optimization# Tags
+
+- Auto-termination (10-60 min idle)aws_tags = {
+
+- Spot instances (~70% savings)  Project     = "Databricks-TF"
+
+- Autoscaling (1-20 workers)  Environment = "Development"
+
+- Budget alerts (50%, 80%, 100%, 120%)  ManagedBy   = "Terraform"
+
+- Photon engine (3-5x faster)  CostCenter  = "Engineering"
+
 }
-```
 
-### Production Adjustments
+---```
+
+
+
+## 🧪 Testing & Validation### Production Adjustments
+
 ```hcl
-# Larger VPC for production
-vpc_cidr_block         = "10.0.0.0/20"  # 4,096 IPs
-private_subnet_newbits = 3              # /23 subnets (512 IPs per AZ)
-public_subnet_newbits  = 6              # /26 subnets (64 IPs per AZ)
-subnet_count           = 3              # 3 AZs for higher availability
 
-# Production environment
-env = "-prod"
-```
+```bash# Larger VPC for production
 
-## 🚀 Deployment
+# Pre-deploymentvpc_cidr_block         = "10.0.0.0/20"  # 4,096 IPs
 
-### Step 1: Initialize Terraform
-```bash
-terraform init -upgrade
-# Downloads providers and modules
+terraform validateprivate_subnet_newbits = 3              # /23 subnets (512 IPs per AZ)
+
+terraform fmt -recursivepublic_subnet_newbits  = 6              # /26 subnets (64 IPs per AZ)
+
+terraform plan -out=tfplansubnet_count           = 3              # 3 AZs for higher availability
+
+
+
+# Post-deployment verification# Production environment
+
+terraform output workspace_urlenv = "-prod"
+
+``````
+
+
+
+```sql## 🚀 Deployment
+
+-- Unity Catalog verification
+
+USE CATALOG datapact;### Step 1: Initialize Terraform
+
+SHOW SCHEMAS;```bash
+
+SHOW GRANTS ON CATALOG datapact;terraform init -upgrade
+
+```# Downloads providers and modules
+
 # Takes ~30 seconds
-```
 
-### Step 2: Validate Configuration
-```bash
-terraform validate
-# Checks syntax and configuration
-# Takes ~5 seconds
-```
+---```
 
-### Step 3: Plan Deployment
+
+
+## 🔄 Maintenance### Step 2: Validate Configuration
+
 ```bash
+
+### Update Infrastructureterraform validate
+
+```bash# Checks syntax and configuration
+
+git pull origin main# Takes ~5 seconds
+
+terraform init -upgrade```
+
 terraform plan -out=tfplan
-# Shows what will be created
-# Review carefully before applying
-# Takes ~30 seconds
+
+terraform apply tfplan### Step 3: Plan Deployment
+
+``````bash
+
+terraform plan -out=tfplan
+
+### Backup State# Shows what will be created
+
+```bash# Review carefully before applying
+
+aws s3 cp s3://databricks-terraform-state-<account-id>/terraform.tfstate \# Takes ~30 seconds
+
+  ./backups/terraform.tfstate.$(date +%Y%m%d)```
+
 ```
 
 ### Step 4: Apply Infrastructure
-```bash
-terraform apply tfplan
-# Creates all 17 modules
-# Takes ~15-20 minutes total:
+
+### Destroy (Dev Only)```bash
+
+```bashterraform apply tfplan
+
+terraform destroy# Creates all 17 modules
+
+```# Takes ~15-20 minutes total:
+
 #   - Networking: 5 minutes
-#   - Storage/IAM: 2 minutes
+
+---#   - Storage/IAM: 2 minutes
+
 #   - Databricks configs: 3 minutes
-#   - Metastore: 1 minute
+
+## 📚 Documentation#   - Metastore: 1 minute
+
 #   - Workspace: 8-12 minutes
-```
 
-### Step 5: Access Workspace
-```bash
-# Get workspace URL
+- [Style Guide](docs/STYLE_GUIDE.md) - Code standards```
+
+- [Architecture](docs/ARCHITECTURE.md) - Detailed design
+
+- [Deployment](docs/DEPLOYMENT_STEPS.md) - Step-by-step guide### Step 5: Access Workspace
+
+- [Identity Management](docs/IDENTITY_MANAGEMENT_STRATEGY.md) - SCIM integration```bash
+
+- [Complete Reference](docs/COMPLETE_SETUP_SUMMARY.md) - Full config# Get workspace URL
+
 terraform output workspace_url
-# Output: https://dbx-tf-dev-us-east-2.cloud.databricks.com
 
-# Get workspace ID
+---# Output: https://dbx-tf-dev-us-east-2.cloud.databricks.com
+
+
+
+## 🆘 Troubleshooting# Get workspace ID
+
 terraform output workspace_id
-# Output: 1234567890123456
 
-# Get all outputs
-terraform output
-```
+**Provider download errors:**# Output: 1234567890123456
 
-## 🔍 Post-Deployment
+```bash
 
-### 1. Initial Login
-```
-URL: <terraform output workspace_url>
-Credentials: Account admin (SSO or username/password)
+terraform providers mirror ./terraform-providers# Get all outputs
+
+terraform init -plugin-dir=./terraform-providersterraform output
+
+``````
+
+
+
+**IAM propagation failures:**## 🔍 Post-Deployment
+
+```hcl
+
+resource "time_sleep" "wait_for_iam_propagation" {### 1. Initial Login
+
+  create_duration = "180s"  # Increase wait time```
+
+}URL: <terraform output workspace_url>
+
+```Credentials: Account admin (SSO or username/password)
+
 First login: 2-3 minutes for workspace initialization
-```
 
-### 2. Create Unity Catalog Structure
-```sql
--- Create main catalog with managed location
-CREATE CATALOG main
-MANAGED LOCATION 's3://<your-root-bucket>/catalogs/main/';
+**Sensitive output errors:**```
 
--- Create schemas (Bronze/Silver/Gold medallion architecture)
+```hcl
+
+output "secret" {### 2. Create Unity Catalog Structure
+
+  value     = var.secret```sql
+
+  sensitive = true-- Create main catalog with managed location
+
+}CREATE CATALOG main
+
+```MANAGED LOCATION 's3://<your-root-bucket>/catalogs/main/';
+
+
+
+----- Create schemas (Bronze/Silver/Gold medallion architecture)
+
 CREATE SCHEMA main.bronze COMMENT 'Raw ingested data';
-CREATE SCHEMA main.silver COMMENT 'Cleaned and validated data';
+
+## 📞 SupportCREATE SCHEMA main.silver COMMENT 'Cleaned and validated data';
+
 CREATE SCHEMA main.gold COMMENT 'Business-level aggregates';
 
--- Grant permissions
-GRANT USE CATALOG ON main TO `account users`;
+- 📖 [Databricks Docs](https://docs.databricks.com/)
+
+- 📖 [Terraform Provider](https://registry.terraform.io/providers/databricks/databricks/latest/docs)-- Grant permissions
+
+- 📖 [AWS Docs](https://docs.aws.amazon.com/)GRANT USE CATALOG ON main TO `account users`;
+
 GRANT USE SCHEMA ON ALL SCHEMAS IN CATALOG main TO `account users`;
 
+---
+
 -- Create development catalog
-CREATE CATALOG dev
-MANAGED LOCATION 's3://<your-root-bucket>/catalogs/dev/';
-```
+
+**Version:** October 2025  CREATE CATALOG dev
+
+**Terraform:** >= 1.13.4  MANAGED LOCATION 's3://<your-root-bucket>/catalogs/dev/';
+
+**Databricks Provider:** ~> 1.95.0  ```
+
+**AWS Provider:** ~> 6.18.0
 
 ### 3. Create First Cluster
 ```
