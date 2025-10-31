@@ -115,28 +115,6 @@ resource "aws_s3_bucket_policy" "unity_catalog" {
 }
 
 data "aws_iam_policy_document" "unity_catalog_bucket" {
-  # Allow Databricks account to access the bucket
-  statement {
-    sid    = "DatabricksUnityAccessBucket"
-    effect = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"]
-    }
-    actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:PutObject",
-      "s3:DeleteObject",
-      "s3:ListBucket",
-      "s3:GetBucketLocation"
-    ]
-    resources = [
-      aws_s3_bucket.unity_catalog.arn,
-      "${aws_s3_bucket.unity_catalog.arn}/*"
-    ]
-  }
-
   # Allow customer IAM role used by storage credential to access the bucket
   statement {
     sid    = "UnityCatalogRoleBucketAccess"

@@ -15,8 +15,6 @@
  * - External ID prevents confused deputy problem
  * - Allows Databricks to assume role for EC2 and storage operations
  *
- * Databricks Documentation:
- * https://docs.databricks.com/aws/iam/aws-storage-role.html
  *
  * Cost: $0/month (IAM roles are free)
  */

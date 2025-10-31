@@ -1,0 +1,145 @@
+name: Terraform CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.tf"
+      - ".github/workflows/terraform.yml"
+      - "terraform.tfvars"
+      - "versions.tf"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.tf"
+      - ".github/workflows/terraform.yml"
+      - "terraform.tfvars"
+      - "versions.tf"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: -no-color
+  TF_CLI_ARGS_plan: -no-color
+  TF_CLI_ARGS_apply: -no-color
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          sudo mv tflint /usr/local/bin/
+
+      - name: Terraform fmt
+        run: terraform fmt -recursive -check
+
+      - name: TFLint
+        run: tflint --recursive
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: false
+
+      - name: Terraform plan
+        run: terraform plan -input=false
+        env:
+          TF_VAR_dbx_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+          TF_VAR_dbx_acc_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          TF_VAR_dbx_acc_client_secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
+  apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          sudo mv tflint /usr/local/bin/
+
+      - name: Terraform fmt
+        run: terraform fmt -recursive -check
+
+      - name: TFLint
+        run: tflint --recursive
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: false
+
+      - name: Terraform plan (safety)
+        run: terraform plan -input=false -out=tfplan.binary
+        env:
+          TF_VAR_dbx_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+          TF_VAR_dbx_acc_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          TF_VAR_dbx_acc_client_secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve tfplan.binary
+        env:
+          TF_VAR_dbx_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+          TF_VAR_dbx_acc_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          TF_VAR_dbx_acc_client_secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}

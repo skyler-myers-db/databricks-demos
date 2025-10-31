@@ -7,7 +7,6 @@
 
 locals {
   catalog_trust_principal         = "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
-  catalog_account_root_arn        = "arn:aws:iam::${var.aws_account_id}:root"
   catalog_self_role_arn           = "arn:aws:iam::${var.aws_account_id}:role/${var.project_name}-${var.env}-${var.catalog_name}-storage-role"
   catalog_storage_credential_name = "${var.project_name}_${var.env}_${var.catalog_name}_storage"
   catalog_assume_role_arn         = "arn:aws:iam::${var.aws_account_id}:role/${var.assume_role_name}"
@@ -35,7 +34,7 @@ data "aws_iam_policy_document" "catalog_storage_trust" {
       type = "AWS"
       identifiers = [
         local.catalog_trust_principal,
-        local.catalog_account_root_arn
+        local.catalog_self_role_arn
       ]
     }
     actions = ["sts:AssumeRole"]

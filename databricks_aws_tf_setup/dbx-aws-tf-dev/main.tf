@@ -816,7 +816,6 @@ module "datapact_catalog" {
   storage_root_url = format("%s/%s", trimsuffix(module.unity_catalog_storage_credential.external_location_url, "/"), var.catalog_name)
   project_name     = var.project_name
   env              = var.env
-  assume_role_name = var.aws_acc_switch_role
 
   depends_on = [
     module.unity_catalog_storage_credential

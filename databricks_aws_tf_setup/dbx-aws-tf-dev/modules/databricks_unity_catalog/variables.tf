@@ -22,8 +22,3 @@ variable "env" {
   description = "Environment name"
   type        = string
 }
-
-variable "assume_role_name" {
-  description = "IAM role name to assume for AWS CLI trust updates"
-  type        = string
-}

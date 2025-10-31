@@ -22,15 +22,15 @@ resource "databricks_catalog" "main" {
 }
 
 # ============================================================================
-# DEFAULT SCHEMA
+# DEFAULT SCHEMA -- you should use DABs for this though
 # ============================================================================
-resource "databricks_schema" "default" {
-  provider     = databricks.workspace
-  catalog_name = databricks_catalog.main.name
-  name         = "default"
-  comment      = "Default schema for ${var.catalog_name} catalog"
+# resource "databricks_schema" "default" {
+#   provider     = databricks.workspace
+#   catalog_name = databricks_catalog.main.name
+#   name         = "default"
+#   comment      = "Default schema for ${var.catalog_name} catalog"
 
-  properties = {
-    created_by = "terraform"
-  }
-}
+#   properties = {
+#     created_by = "terraform"
+#   }
+# }

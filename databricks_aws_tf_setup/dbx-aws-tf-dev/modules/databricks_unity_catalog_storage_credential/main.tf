@@ -9,10 +9,9 @@
 # Local helpers
 # ============================================================================
 locals {
-  uc_trust_principal  = "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
-  uc_account_root_arn = "arn:aws:iam::${var.aws_account_id}:root"
-  uc_self_role_arn    = "arn:aws:iam::${var.aws_account_id}:role/${var.project_name}-${var.env}-unity-catalog-storage-role"
-  uc_assume_role_arn  = "arn:aws:iam::${var.aws_account_id}:role/${var.assume_role_name}"
+  uc_trust_principal = "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+  uc_self_role_arn   = "arn:aws:iam::${var.aws_account_id}:role/${var.project_name}-${var.env}-unity-catalog-storage-role"
+  uc_assume_role_arn = "arn:aws:iam::${var.aws_account_id}:role/${var.assume_role_name}"
 }
 
 # ============================================================================
@@ -35,8 +34,11 @@ data "aws_iam_policy_document" "trust_policy" {
   statement {
     effect = "Allow"
     principals {
-      type        = "AWS"
-      identifiers = [local.uc_trust_principal, local.uc_account_root_arn]
+      type = "AWS"
+      identifiers = [
+        local.uc_trust_principal,
+        local.uc_self_role_arn
+      ]
     }
     actions = ["sts:AssumeRole"]
     condition {
