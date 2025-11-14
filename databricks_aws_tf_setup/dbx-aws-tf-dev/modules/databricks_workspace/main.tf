@@ -67,7 +67,7 @@
 # - Network config and storage config can be reused for new workspaces
 # ============================================================================
 resource "databricks_mws_workspaces" "workspace" {
-  provider = databricks.mws
+  provider = databricks
 
   # Account and region configuration
   account_id = var.dbx_account_id
@@ -135,7 +135,7 @@ resource "databricks_mws_workspaces" "workspace" {
 # NOTE: Metastore assignment is ALWAYS done because the metastore is created
 # before the workspace in the root module. No conditional count needed.
 resource "databricks_metastore_assignment" "workspace_metastore" {
-  provider = databricks.mws
+  provider = databricks
 
   workspace_id = databricks_mws_workspaces.workspace.workspace_id
   metastore_id = var.metastore_id

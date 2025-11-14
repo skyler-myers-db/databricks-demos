@@ -1,40 +1,30 @@
-/**
- * Databricks Cross-Account Policy Module - Input Variables
- *
- * Required for attaching cross-account compute permissions to Databricks IAM role
- */
-
 variable "policy_name" {
-  description = "Name of the IAM policy for cross-account compute access"
+  description = "Name of the IAM policy"
   type        = string
-
-  validation {
-    condition     = can(regex("^[a-zA-Z0-9+=,.@_-]+$", var.policy_name))
-    error_message = "Policy name must contain only alphanumeric characters and +=,.@_-"
-  }
 }
 
 variable "role_name" {
-  description = "Name of the IAM role to attach policy to (from databricks_iam_role module)"
+  description = "Name of the IAM role to attach the policy to"
   type        = string
 }
 
 variable "workspace_name" {
-  description = "Name of the Databricks workspace (for tagging purposes)"
+  description = "Databricks workspace name (for tagging)"
   type        = string
 }
 
 variable "project_name" {
-  description = "Project name (for consistent naming and tagging)"
+  description = "Project name for tagging"
   type        = string
 }
 
 variable "env" {
-  description = "Environment (dev, staging, prod)"
+  description = "Environment name"
   type        = string
+}
 
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.env)
-    error_message = "Environment must be one of: dev, staging, prod."
-  }
+variable "pass_role_arns" {
+  description = "List of IAM role ARNs that Databricks must be able to pass"
+  type        = list(string)
+  default     = []
 }

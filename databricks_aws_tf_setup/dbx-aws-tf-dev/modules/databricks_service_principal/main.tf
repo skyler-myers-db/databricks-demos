@@ -39,7 +39,7 @@
 # resource provisioning (external locations, catalogs, etc.)
 
 resource "databricks_service_principal" "workspace_terraform" {
-  provider     = databricks.mws
+  provider     = databricks
   display_name = var.service_principal_name
   active       = true
 
@@ -55,7 +55,7 @@ resource "databricks_service_principal" "workspace_terraform" {
 # More secure than Personal Access Tokens (PATs)
 
 resource "databricks_service_principal_secret" "workspace_terraform" {
-  provider             = databricks.mws
+  provider             = databricks
   service_principal_id = databricks_service_principal.workspace_terraform.id
 }
 
@@ -67,7 +67,7 @@ resource "databricks_service_principal_secret" "workspace_terraform" {
 # Does NOT grant account-level admin (maintains least-privilege principle)
 
 resource "databricks_mws_permission_assignment" "workspace_admin" {
-  provider     = databricks.mws
+  provider     = databricks
   workspace_id = var.workspace_id
   principal_id = databricks_service_principal.workspace_terraform.id
   permissions  = ["ADMIN"]

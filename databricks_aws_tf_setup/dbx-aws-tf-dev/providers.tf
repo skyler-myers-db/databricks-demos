@@ -35,30 +35,24 @@ provider "databricks" {
 # ============================================================================
 # WORKSPACE PROVIDER - Uses Service Principal OAuth Credentials
 # ============================================================================
-# This provider uses the service principal created by Terraform to manage
-# workspace-level resources (cluster policies, grants, catalogs, etc.)
-#
-# SINGLE-RUN DEPLOYMENT:
-# The provider references outputs from the workspace_service_principal module.
-# Terraform will automatically create the service principal first, then use
-# its credentials for workspace-level resources via proper dependency chains.
-#
-# The workspace provider is ALWAYS enabled. Resources that depend on it
-# (cluster_policies, catalog_grants) have explicit depends_on to ensure
-# the service principal exists before the provider is used.
+# This provider uses the account-level service principal credentials during
+# initial provisioning. That avoids circular dependencies between the workspace
+# creation flow and the credential bootstrap. After Terraform creates the
+# dedicated workspace automation principal, you can override these credentials
+# (for example via tfvars or environment variables) to operate purely with that
+# principal.
 # ============================================================================
-
 provider "databricks" {
   alias         = "workspace"
-  host          = module.databricks_workspace.workspace_url
-  client_id     = module.workspace_service_principal.oauth_client_id
-  client_secret = module.workspace_service_principal.oauth_client_secret
+  host          = local.workspace_url
+  client_id     = var.dbx_acc_client_id
+  client_secret = var.dbx_acc_client_secret
   auth_type     = "oauth-m2m"
 }
 
 provider "databricks" {
   alias         = "workspace_admin"
-  host          = module.databricks_workspace.workspace_url
+  host          = local.workspace_url
   client_id     = var.dbx_acc_client_id
   client_secret = var.dbx_acc_client_secret
   auth_type     = "oauth-m2m"

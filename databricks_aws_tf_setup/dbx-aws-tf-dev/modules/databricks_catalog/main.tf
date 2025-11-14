@@ -202,7 +202,7 @@ resource "time_sleep" "catalog_iam_propagation" {
 # External ID is automatically retrieved from the created credential
 
 resource "databricks_storage_credential" "catalog" {
-  provider = databricks.workspace
+  provider = databricks
   name     = local.catalog_storage_credential_name
   comment  = "Storage credential for ${var.catalog_name} catalog in ${var.env}"
 
@@ -272,7 +272,7 @@ resource "time_sleep" "trust_policy_propagation" {
 # File events enabled for auto-refresh and incremental data processing
 
 resource "databricks_external_location" "catalog" {
-  provider        = databricks.workspace
+  provider        = databricks
   name            = "${var.project_name}_${var.env}_${var.catalog_name}_location"
   url             = var.storage_prefix != "" ? "s3://${var.storage_bucket_name}/${var.storage_prefix}" : "s3://${var.storage_bucket_name}"
   credential_name = databricks_storage_credential.catalog.name
@@ -290,7 +290,7 @@ resource "databricks_external_location" "catalog" {
 # Creates the catalog with managed storage location
 
 resource "databricks_catalog" "main" {
-  provider     = databricks.workspace
+  provider     = databricks
   metastore_id = var.metastore_id
   name         = var.catalog_name
   comment      = "Main catalog for ${var.project_name} ${var.env} environment"
@@ -313,7 +313,7 @@ resource "databricks_catalog" "main" {
 # Creates a default schema within the catalog
 
 resource "databricks_schema" "default" {
-  provider     = databricks.workspace
+  provider     = databricks
   catalog_name = databricks_catalog.main.name
   name         = "default"
   comment      = "Default schema for ${var.catalog_name} catalog"

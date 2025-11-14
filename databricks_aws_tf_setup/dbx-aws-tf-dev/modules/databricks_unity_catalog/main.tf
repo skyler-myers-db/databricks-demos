@@ -6,7 +6,7 @@
 # ============================================================================
 
 resource "databricks_catalog" "main" {
-  provider     = databricks.workspace
+  provider     = databricks
   metastore_id = var.metastore_id
   name         = var.catalog_name
   comment      = "Unity Catalog for ${var.project_name} ${var.env} - ${var.catalog_name}"
@@ -25,7 +25,7 @@ resource "databricks_catalog" "main" {
 # DEFAULT SCHEMA -- you should use DABs for this though
 # ============================================================================
 # resource "databricks_schema" "default" {
-#   provider     = databricks.workspace
+#   provider     = databricks
 #   catalog_name = databricks_catalog.main.name
 #   name         = "default"
 #   comment      = "Default schema for ${var.catalog_name} catalog"

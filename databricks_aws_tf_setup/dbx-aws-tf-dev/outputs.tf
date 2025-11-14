@@ -64,6 +64,21 @@ output "cross_account_role_name" {
   value       = module.databricks_iam_role.role_name
 }
 
+output "instance_profile_role_arn" {
+  description = "IAM role ARN for Databricks cluster instance profile"
+  value       = module.databricks_instance_profile.role_arn
+}
+
+output "instance_profile_arn" {
+  description = "IAM instance profile ARN to register in Databricks"
+  value       = module.databricks_instance_profile.instance_profile_arn
+}
+
+output "instance_profile_role_name" {
+  description = "Name of the IAM role used as the Databricks instance profile"
+  value       = module.databricks_instance_profile.role_name
+}
+
 output "external_id" {
   description = "External ID for IAM role trust policy (prevents confused deputy attacks)"
   value       = var.dbx_account_id
@@ -220,7 +235,7 @@ output "unity_catalog_storage_credential_name" {
 
 output "unity_catalog_external_location_url" {
   description = "URL of the Unity Catalog root external location"
-  value       = module.unity_catalog_storage_credential.external_location_url
+  value       = coalesce(module.unity_catalog_storage_credential.external_location_url, "s3://${module.unity_catalog_storage.bucket_name}")
 }
 
 # ============================================================================
@@ -453,4 +468,3 @@ output "migrate_to_remote_state" {
 }
 
 data "aws_caller_identity" "current" {}
-

@@ -252,7 +252,7 @@ module "databricks_s3_root" {
 
   project_name       = var.project_name
   env                = var.env
-  workspace_name     = "${var.project_name}-${var.env}-workspace"
+  workspace_name     = local.workspace_system_name
   dbx_account_id     = var.dbx_account_id
   log_retention_days = 365                    # Cluster logs retention (1 year)
   kms_key_arn        = module.kms.kms_key_arn # Customer-managed KMS encryption
@@ -271,10 +271,10 @@ module "databricks_iam_role" {
     aws = aws.dev
   }
 
-  role_name      = "${var.project_name}-${var.env}-databricks-storage"
+  role_name      = "${local.workspace_resource_prefix}-databricks-storage"
   project_name   = var.project_name
   env            = var.env
-  workspace_name = "${var.project_name}-${var.env}-workspace"
+  workspace_name = local.workspace_system_name
   dbx_account_id = var.dbx_account_id
 
   # Trust policy allows:
@@ -294,11 +294,11 @@ module "databricks_iam_policy" {
   # Dependency: Wait for IAM role and S3 bucket to be created
   depends_on = [module.databricks_iam_role, module.databricks_s3_root]
 
-  policy_name    = "${var.project_name}-${var.env}-databricks-unity-catalog"
+  policy_name    = "${local.workspace_resource_prefix}-databricks-unity-catalog"
   role_name      = module.databricks_iam_role.role_name
   bucket_arn     = module.databricks_s3_root.bucket_arn
   bucket_name    = module.databricks_s3_root.bucket_name
-  workspace_name = "${var.project_name}-${var.env}-workspace"
+  workspace_name = local.workspace_system_name
   project_name   = var.project_name
   env            = var.env
 
@@ -313,7 +313,58 @@ module "databricks_iam_policy" {
   # Policy 2 (File Events): S3 notifications, SNS topic mgmt, SQS queue mgmt
 }
 
-# Step 12b: Attach cross-account compute policy to Databricks IAM role (Step 2 - Workspace credentials)
+locals {
+  instance_profile_inline_policies = {
+    "root-bucket-access" = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:GetObjectVersion",
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "s3:ListBucket",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            module.databricks_s3_root.bucket_arn,
+            "${module.databricks_s3_root.bucket_arn}/*"
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "kms:Decrypt",
+            "kms:Encrypt",
+            "kms:GenerateDataKey*",
+            "kms:DescribeKey"
+          ]
+          Resource = [module.kms.kms_key_arn]
+        }
+      ]
+    })
+  }
+}
+
+# Step 12b: Create instance profile role for cluster compute
+module "databricks_instance_profile" {
+  source = "./modules/databricks_instance_profile"
+
+  providers = {
+    aws = aws.dev
+  }
+
+  role_name           = "${local.workspace_resource_prefix}-workspace-instance-profile"
+  project_name        = var.project_name
+  env                 = var.env
+  managed_policy_arns = []
+  inline_policies     = local.instance_profile_inline_policies
+  enable_serverless   = true
+}
+
+# Step 12c: Attach cross-account compute policy to Databricks IAM role (Step 2 - Workspace credentials)
 module "databricks_cross_account_policy" {
   source = "./modules/databricks_cross_account_policy"
 
@@ -322,13 +373,14 @@ module "databricks_cross_account_policy" {
   }
 
   # Dependency: Wait for IAM role to be created
-  depends_on = [module.databricks_iam_role]
+  depends_on = [module.databricks_iam_role, module.databricks_instance_profile]
 
-  policy_name    = "${var.project_name}-${var.env}-databricks-cross-account"
+  policy_name    = "${local.workspace_resource_prefix}-databricks-cross-account"
   role_name      = module.databricks_iam_role.role_name
-  workspace_name = "${var.project_name}-${var.env}-workspace"
+  workspace_name = local.workspace_system_name
   project_name   = var.project_name
   env            = var.env
+  pass_role_arns = [module.databricks_instance_profile.role_arn]
 
   # Grants comprehensive EC2 and IAM permissions per Databricks Step 2:
   # - EC2: Launch/terminate instances, volumes, security groups, spot/fleet management
@@ -354,8 +406,8 @@ module "databricks_storage_config" {
   ]
 
   # Configuration naming
-  storage_configuration_name = "${var.project_name}-${var.env}-storage-config"
-  credentials_name           = "${var.project_name}-${var.env}-credentials"
+  storage_configuration_name = "${local.workspace_resource_prefix}-storage-config"
+  credentials_name           = "${local.workspace_resource_prefix}-credentials"
 
   # AWS resources to register with Databricks account
   databricks_account_id = var.dbx_account_id
@@ -392,7 +444,7 @@ module "databricks_network_config" {
   ]
 
   # Configuration naming
-  network_configuration_name = "${var.project_name}-${var.env}-network-config"
+  network_configuration_name = "${local.workspace_resource_prefix}-network-config"
 
   # AWS networking resources to register with Databricks account
   databricks_account_id = var.dbx_account_id
@@ -427,10 +479,10 @@ module "databricks_metastore" {
   ]
 
   # Metastore configuration
-  metastore_name          = "${var.project_name}-${var.env}-${var.aws_region}-metastore"
+  metastore_name          = "${local.workspace_deployment_name}-metastore"
   aws_region              = var.aws_region
   metastore_owner         = var.dbx_metastore_owner_email
-  data_access_config_name = "${var.project_name}-${var.env}-data-access"
+  data_access_config_name = "${local.workspace_resource_prefix}-data-access"
   iam_role_arn            = module.databricks_iam_role.role_arn
 
   # Metadata
@@ -505,7 +557,7 @@ module "databricks_workspace" {
   source = "./modules/databricks_workspace"
 
   providers = {
-    databricks.mws = databricks.mws
+    databricks = databricks.mws
   }
 
   # Explicit dependencies: All infrastructure must exist first
@@ -521,7 +573,7 @@ module "databricks_workspace" {
 
   # Workspace naming
   workspace_name  = "${var.project_name} Analytics ${title(replace(var.env, "-", ""))}" # "Databricks TF Analytics Dev"
-  deployment_name = "${var.project_name}${var.env}-${var.aws_region}"                   # "dbx-tf-dev-us-east-2"
+  deployment_name = local.workspace_deployment_name                                     # "dbx-tf-dev-us-east-2"
 
   # Infrastructure dependencies (IDs from previous modules)
   credentials_id           = module.databricks_storage_config.credentials_id
@@ -580,7 +632,7 @@ module "workspace_service_principal" {
   source = "./modules/databricks_service_principal"
 
   providers = {
-    databricks.mws = databricks.mws
+    databricks = databricks.mws
   }
 
   depends_on = [
@@ -604,7 +656,7 @@ module "workspace_permissions" {
   source = "./modules/databricks_workspace_permissions"
 
   providers = {
-    databricks.mws = databricks.mws
+    databricks = databricks.mws
   }
 
   depends_on = [
@@ -699,7 +751,7 @@ module "unity_catalog_storage" {
     aws = aws.dev
   }
 
-  bucket_name           = "${var.project_name}-${var.env}-unity-catalog-storage"
+  bucket_name           = "${local.workspace_resource_prefix}-unity-catalog-storage"
   force_destroy         = var.force_destroy
   kms_key_arn           = module.kms.kms_key_arn
   databricks_account_id = var.dbx_account_id
@@ -709,8 +761,7 @@ module "unity_catalog_storage" {
   env                   = var.env
 
   depends_on = [
-    module.kms,
-    module.databricks_workspace
+    module.kms
   ]
 }
 
@@ -733,7 +784,7 @@ module "job_runner_service_principal" {
   source = "./modules/databricks_job_runner_service_principal"
 
   providers = {
-    databricks.mws = databricks.mws
+    databricks = databricks.mws
   }
 
   service_principal_name = var.job_runner_sp_name
@@ -765,20 +816,22 @@ module "unity_catalog_storage_credential" {
   source = "./modules/databricks_unity_catalog_storage_credential"
 
   providers = {
-    databricks.workspace = databricks.workspace
-    aws                  = aws.dev
+    databricks = databricks.workspace
+    aws        = aws.dev
   }
 
+  role_name               = "${local.workspace_resource_prefix}-unity-catalog-storage-role"
   storage_credential_name = "${var.project_name}_${var.env}_unity_catalog_storage"
-  storage_bucket_name     = module.unity_catalog_storage.bucket_name
-  storage_bucket_arn      = module.unity_catalog_storage.bucket_arn
-  databricks_account_id   = var.dbx_account_id
+  bucket_arn              = module.unity_catalog_storage.bucket_arn
   aws_account_id          = module.aws_account.account_id
   aws_region              = var.aws_region
-  assume_role_name        = var.aws_acc_switch_role
-  kms_key_arn             = module.kms.kms_key_arn
   project_name            = var.project_name
   env                     = var.env
+  initial_external_id     = var.dbx_account_id
+  assume_role_name        = var.aws_acc_switch_role
+  kms_key_arns            = [module.kms.kms_key_arn]
+  external_location_name  = "${var.project_name}_${var.env}_unity_catalog_root"
+  external_location_url   = "s3://${module.unity_catalog_storage.bucket_name}"
 
   depends_on = [
     module.unity_catalog_storage,
@@ -808,14 +861,18 @@ module "datapact_catalog" {
   source = "./modules/databricks_unity_catalog"
 
   providers = {
-    databricks.workspace = databricks.workspace
+    databricks = databricks.workspace
   }
 
-  catalog_name     = var.catalog_name
-  metastore_id     = module.databricks_metastore.metastore_id
-  storage_root_url = format("%s/%s", trimsuffix(module.unity_catalog_storage_credential.external_location_url, "/"), var.catalog_name)
-  project_name     = var.project_name
-  env              = var.env
+  catalog_name = var.catalog_name
+  metastore_id = module.databricks_metastore.metastore_id
+  storage_root_url = format(
+    "%s/%s",
+    trimsuffix(coalesce(module.unity_catalog_storage_credential.external_location_url, "s3://${module.unity_catalog_storage.bucket_name}"), "/"),
+    var.catalog_name
+  )
+  project_name = var.project_name
+  env          = var.env
 
   depends_on = [
     module.unity_catalog_storage_credential
@@ -847,7 +904,7 @@ module "cluster_policies" {
     databricks = databricks.workspace
   }
 
-  workspace_name                = "${var.project_name}-${var.env}-workspace"
+  workspace_name                = local.workspace_system_name
   env                           = var.env
   cost_center                   = var.cost_center
   allowed_instance_types        = var.cluster_policy_allowed_instance_types

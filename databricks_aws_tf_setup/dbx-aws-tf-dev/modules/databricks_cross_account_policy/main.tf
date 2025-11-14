@@ -84,6 +84,11 @@ data "aws_iam_policy_document" "databricks_cross_account_policy" {
       "ec2:CreateLaunchTemplateVersion",
 
       # Network interface management
+      "ec2:CreateNetworkInterface",
+      "ec2:DeleteNetworkInterface",
+      "ec2:AttachNetworkInterface",
+      "ec2:DetachNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
       "ec2:AssignPrivateIpAddresses",
 
       # Spot placement optimization
@@ -97,8 +102,7 @@ data "aws_iam_policy_document" "databricks_cross_account_policy" {
     sid    = "DatabricksSpotServiceLinkedRole"
     effect = "Allow"
     actions = [
-      "iam:CreateServiceLinkedRole",
-      "iam:PutRolePolicy"
+      "iam:CreateServiceLinkedRole"
     ]
     resources = [
       "arn:aws:iam::*:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
@@ -107,6 +111,21 @@ data "aws_iam_policy_document" "databricks_cross_account_policy" {
       test     = "StringLike"
       variable = "iam:AWSServiceName"
       values   = ["spot.amazonaws.com"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(var.pass_role_arns) > 0 ? [1] : []
+    content {
+      sid       = "DatabricksPassInstanceProfiles"
+      effect    = "Allow"
+      actions   = ["iam:PassRole"]
+      resources = var.pass_role_arns
+      condition {
+        test     = "StringEquals"
+        variable = "iam:PassedToService"
+        values   = ["ec2.amazonaws.com"]
+      }
     }
   }
 }

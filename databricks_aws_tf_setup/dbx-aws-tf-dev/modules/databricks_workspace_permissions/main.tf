@@ -32,7 +32,7 @@
 # Does NOT manage the user - Google SCIM is the source of truth
 
 data "databricks_user" "workspace_admin" {
-  provider  = databricks.mws
+  provider  = databricks
   user_name = var.admin_user_email
 
   # This data source will fail if user doesn't exist yet via SCIM
@@ -46,7 +46,7 @@ data "databricks_user" "workspace_admin" {
 
 data "databricks_group" "data_engineers" {
   count        = var.assign_data_engineers_group ? 1 : 0
-  provider     = databricks.mws
+  provider     = databricks
   display_name = var.data_engineers_group_name
 
   # This data source will fail if group doesn't exist yet via SCIM
@@ -60,7 +60,7 @@ data "databricks_group" "data_engineers" {
 # User is managed by SCIM, but workspace assignment is managed by Terraform
 
 resource "databricks_mws_permission_assignment" "user_admin" {
-  provider     = databricks.mws
+  provider     = databricks
   workspace_id = var.workspace_id
   principal_id = data.databricks_user.workspace_admin.id
   permissions  = ["ADMIN"]
@@ -75,7 +75,7 @@ resource "databricks_mws_permission_assignment" "user_admin" {
 
 resource "databricks_mws_permission_assignment" "data_engineers_users" {
   count        = var.assign_data_engineers_group ? 1 : 0
-  provider     = databricks.mws
+  provider     = databricks
   workspace_id = var.workspace_id
   principal_id = data.databricks_group.data_engineers[0].id
   permissions  = ["USER"]

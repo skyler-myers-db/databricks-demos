@@ -13,7 +13,7 @@
 # ============================================================================
 
 resource "databricks_service_principal" "job_runner" {
-  provider                   = databricks.mws
+  provider                   = databricks
   display_name               = "${var.project_name}-${var.env}-${var.service_principal_name}"
   external_id                = "${var.project_name}-${var.env}-${var.service_principal_name}"
   allow_cluster_create       = true
@@ -28,7 +28,7 @@ resource "databricks_service_principal" "job_runner" {
 # Used by Databricks Asset Bundles for authentication
 
 resource "databricks_service_principal_secret" "job_runner" {
-  provider             = databricks.mws
+  provider             = databricks
   service_principal_id = databricks_service_principal.job_runner.id
 }
 
@@ -39,7 +39,7 @@ resource "databricks_service_principal_secret" "job_runner" {
 # This allows it to run jobs but NOT perform administrative actions
 
 resource "databricks_mws_permission_assignment" "job_runner_workspace" {
-  provider     = databricks.mws
+  provider     = databricks
   workspace_id = var.workspace_id
   principal_id = databricks_service_principal.job_runner.id
   permissions  = ["USER"]

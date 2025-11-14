@@ -3,9 +3,8 @@ terraform {
 
   required_providers {
     databricks = {
-      source                = "databricks/databricks"
-      version               = "~> 1.95.0"
-      configuration_aliases = [databricks.workspace]
+      source  = "databricks/databricks"
+      version = "~> 1.95.0"
     }
     aws = {
       source  = "hashicorp/aws"

@@ -1,229 +1,227 @@
-# ============================================================================
-# UNITY CATALOG STORAGE CREDENTIAL MODULE
-# ============================================================================
-# Purpose: Creates a REUSABLE storage credential for Unity Catalog
-# Scope: One credential per S3 bucket, can be used by multiple catalogs
-# ============================================================================
+/**
+ * Databricks Unity Catalog Storage Credential Module
+ *
+ * Creates a self-assuming IAM role and Databricks storage credential for
+ * accessing Unity Catalog managed storage. Trust policy follows Databricks
+ * guidance: the UC master role and the role itself may assume it, gated by the
+ * storage credential external ID. After the credential is created, the trust
+ * policy is updated to use the real external ID supplied by Databricks.
+ *
+ * Optionally creates an external location pointing to the bucket root.
+ */
 
-# ============================================================================
-# Local helpers
-# ============================================================================
 locals {
-  uc_trust_principal = "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
-  uc_self_role_arn   = "arn:aws:iam::${var.aws_account_id}:role/${var.project_name}-${var.env}-unity-catalog-storage-role"
-  uc_assume_role_arn = "arn:aws:iam::${var.aws_account_id}:role/${var.assume_role_name}"
+  uc_master_role_arn        = "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+  self_role_arn             = "arn:aws:iam::${var.aws_account_id}:role/${var.role_name}"
+  assume_role_arn           = "arn:aws:iam::${var.aws_account_id}:role/${var.assume_role_name}"
+  inferred_external_name    = "${var.project_name}_${var.env}_root"
+  inferred_external_url     = replace(var.bucket_arn, "arn:aws:s3:::", "s3://")
+  external_location_name    = length(trimspace(var.external_location_name)) > 0 ? var.external_location_name : local.inferred_external_name
+  external_location_url_raw = length(trimspace(var.external_location_url)) > 0 ? var.external_location_url : local.inferred_external_url
 }
 
-# ============================================================================
-# IAM ROLE FOR STORAGE CREDENTIAL
-# ============================================================================
-resource "aws_iam_role" "unity_catalog_storage" {
-  name               = "${var.project_name}-${var.env}-unity-catalog-storage-role"
-  assume_role_policy = data.aws_iam_policy_document.trust_policy.json
-
-  tags = {
-    Name    = "${var.project_name}-${var.env}-unity-catalog-storage-role"
-    Purpose = "databricks-unity-catalog-storage"
-    Project = var.project_name
-    Env     = var.env
-  }
-}
-
-# Trust policy: Databricks Unity Catalog + self-assuming
-data "aws_iam_policy_document" "trust_policy" {
+data "aws_iam_policy_document" "trust" {
   statement {
     effect = "Allow"
     principals {
-      type = "AWS"
-      identifiers = [
-        local.uc_trust_principal,
-        local.uc_self_role_arn
-      ]
+      type        = "AWS"
+      identifiers = [local.uc_master_role_arn, local.self_role_arn]
     }
     actions = ["sts:AssumeRole"]
     condition {
       test     = "StringEquals"
       variable = "sts:ExternalId"
-      values   = [var.databricks_account_id]
-    }
-    condition {
-      test     = "ForAnyValue:StringEquals"
-      variable = "aws:PrincipalArn"
-      values   = [local.uc_trust_principal, local.uc_self_role_arn]
+      values   = [var.initial_external_id]
     }
   }
 }
 
-# ============================================================================
-# IAM POLICY - S3 ACCESS
-# ============================================================================
-resource "aws_iam_role_policy" "s3_access" {
-  name   = "${var.project_name}-${var.env}-unity-catalog-s3-policy"
-  role   = aws_iam_role.unity_catalog_storage.id
-  policy = data.aws_iam_policy_document.s3_access.json
+resource "aws_iam_role" "this" {
+  name               = var.role_name
+  path               = "/databricks/"
+  assume_role_policy = data.aws_iam_policy_document.trust.json
+
+  lifecycle {
+    # Trust policy is updated post-creation with the storage credential External ID.
+    ignore_changes = [assume_role_policy]
+  }
+
+  tags = {
+    Name        = var.role_name
+    Purpose     = "Databricks UC storage credential"
+    Environment = var.env
+    Project     = var.project_name
+  }
 }
 
 data "aws_iam_policy_document" "s3_access" {
-  # Full S3 bucket access (including multipart uploads)
   statement {
     effect = "Allow"
     actions = [
       "s3:GetObject",
       "s3:GetObjectVersion",
+      "s3:DeleteObjectVersion",
+      "s3:DeleteObjectVersionTagging",
       "s3:PutObject",
-      "s3:PutObjectAcl",
       "s3:DeleteObject",
       "s3:ListBucket",
+      "s3:ListBucketVersions",
       "s3:GetBucketLocation",
       "s3:ListBucketMultipartUploads",
       "s3:ListMultipartUploadParts",
       "s3:AbortMultipartUpload"
     ]
-    resources = [
-      var.storage_bucket_arn,
-      "${var.storage_bucket_arn}/*"
-    ]
+    resources = [var.bucket_arn, "${var.bucket_arn}/*"]
   }
 
-  # KMS encryption/decryption
-  statement {
-    effect = "Allow"
-    actions = [
-      "kms:Decrypt",
-      "kms:Encrypt",
-      "kms:GenerateDataKey*"
-    ]
-    resources = [var.kms_key_arn]
+  dynamic "statement" {
+    for_each = length(var.kms_key_arns) > 0 ? [1] : []
+    content {
+      effect    = "Allow"
+      actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey*", "kms:DescribeKey"]
+      resources = var.kms_key_arns
+      condition {
+        test     = "StringEquals"
+        variable = "kms:ViaService"
+        values   = ["s3.${var.aws_region}.amazonaws.com"]
+      }
+    }
   }
 
-  # Self-assume role
   statement {
-    effect = "Allow"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    resources = [
-      local.uc_self_role_arn
-    ]
+    effect    = "Allow"
+    actions   = ["sts:AssumeRole"]
+    resources = [local.self_role_arn]
   }
 }
 
-# ============================================================================
-# IAM POLICY - FILE EVENTS (SNS/SQS)
-# ============================================================================
+resource "aws_iam_role_policy" "s3_access" {
+  name   = "${var.role_name}-s3-access"
+  role   = aws_iam_role.this.id
+  policy = data.aws_iam_policy_document.s3_access.json
+}
+
 resource "aws_iam_role_policy" "file_events" {
-  name   = "${var.project_name}-${var.env}-unity-catalog-file-events-policy"
-  role   = aws_iam_role.unity_catalog_storage.id
-  policy = data.aws_iam_policy_document.file_events.json
+  count  = var.enable_file_events ? 1 : 0
+  name   = "${var.role_name}-file-events"
+  role   = aws_iam_role.this.id
+  policy = data.aws_iam_policy_document.file_events[0].json
 }
 
 data "aws_iam_policy_document" "file_events" {
+  count = var.enable_file_events ? 1 : 0
+
+  # Bucket notification permissions
   statement {
-    sid    = "ManagedFileEventsSetupStatement"
+    sid    = "ManagedFileEventsBucketNotifications"
     effect = "Allow"
     actions = [
       "s3:GetBucketNotification",
-      "s3:PutBucketNotification",
-      "sns:ListSubscriptionsByTopic",
-      "sns:GetTopicAttributes",
-      "sns:SetTopicAttributes",
+      "s3:PutBucketNotification"
+    ]
+    resources = [var.bucket_arn]
+  }
+
+  # Create operations must use resource "*"; restrict by name
+  statement {
+    sid    = "ManagedFileEventsCreate"
+    effect = "Allow"
+    actions = [
       "sns:CreateTopic",
+      "sqs:CreateQueue",
+      "sqs:GetQueueUrl"
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringLike"
+      variable = "sns:TopicName"
+      values   = ["csms-*"]
+    }
+    condition {
+      test     = "StringLike"
+      variable = "sqs:QueueName"
+      values   = ["csms-*"]
+    }
+  }
+
+  # Operate on created SNS topics and SQS queues
+  statement {
+    sid    = "ManagedFileEventsOperate"
+    effect = "Allow"
+    actions = [
       "sns:TagResource",
       "sns:Publish",
       "sns:Subscribe",
-      "sqs:CreateQueue",
-      "sqs:DeleteMessage",
-      "sqs:ReceiveMessage",
-      "sqs:SendMessage",
-      "sqs:GetQueueUrl",
-      "sqs:GetQueueAttributes",
-      "sqs:SetQueueAttributes",
+      "sns:SetTopicAttributes",
+      "sns:GetTopicAttributes",
+      "sns:ListSubscriptionsByTopic",
       "sqs:TagQueue",
+      "sqs:SetQueueAttributes",
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:PurgeQueue",
       "sqs:ChangeMessageVisibility",
-      "sqs:PurgeQueue"
+      "sqs:ListQueueTags"
     ]
     resources = [
-      var.storage_bucket_arn,
-      "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:csms-*",
-      "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:csms-*"
+      "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:csms-*",
+      "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:csms-*"
     ]
   }
 
+  # Discovery helpers
   statement {
-    sid    = "ManagedFileEventsListStatement"
-    effect = "Allow"
-    actions = [
-      "sqs:ListQueues",
-      "sqs:ListQueueTags",
-      "sns:ListTopics"
-    ]
-    resources = [
-      "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:csms-*",
-      "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:csms-*"
-    ]
+    sid       = "ManagedFileEventsList"
+    effect    = "Allow"
+    actions   = ["sns:ListTopics", "sqs:ListQueues"]
+    resources = ["*"]
   }
 
+  # Teardown operations
   statement {
-    sid    = "ManagedFileEventsTeardownStatement"
-    effect = "Allow"
-    actions = [
-      "sns:Unsubscribe",
-      "sns:DeleteTopic",
-      "sqs:DeleteQueue"
-    ]
+    sid     = "ManagedFileEventsTeardown"
+    effect  = "Allow"
+    actions = ["sns:Unsubscribe", "sns:DeleteTopic", "sqs:DeleteQueue"]
     resources = [
-      "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:csms-*",
-      "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:csms-*"
+      "arn:aws:sns:${var.aws_region}:${var.aws_account_id}:csms-*",
+      "arn:aws:sqs:${var.aws_region}:${var.aws_account_id}:csms-*"
     ]
   }
 }
 
-# Wait for IAM propagation
-resource "time_sleep" "iam_propagation" {
-  depends_on = [
-    aws_iam_role.unity_catalog_storage,
-    aws_iam_role_policy.s3_access,
-    aws_iam_role_policy.file_events
-  ]
-  create_duration = "30s"
-}
-
-# ============================================================================
-# DATABRICKS STORAGE CREDENTIAL
-# ============================================================================
-resource "databricks_storage_credential" "unity_catalog" {
-  provider = databricks.workspace
+resource "databricks_storage_credential" "this" {
+  provider = databricks
   name     = var.storage_credential_name
-  comment  = "Storage credential for Unity Catalog data bucket (reusable across catalogs)"
+  comment  = "Storage credential for ${var.project_name}-${var.env}"
 
   aws_iam_role {
-    role_arn = aws_iam_role.unity_catalog_storage.arn
+    role_arn = aws_iam_role.this.arn
   }
-
-  depends_on = [time_sleep.iam_propagation]
 }
 
-resource "time_sleep" "wait_for_trust_update" {
-  depends_on      = [databricks_storage_credential.unity_catalog]
+resource "time_sleep" "wait_for_credential" {
+  depends_on      = [databricks_storage_credential.this]
   create_duration = "20s"
 }
 
-resource "null_resource" "update_trust_policy" {
+resource "null_resource" "update_trust" {
   triggers = {
-    storage_credential_id = databricks_storage_credential.unity_catalog.id
-    iam_role_arn          = aws_iam_role.unity_catalog_storage.arn
+    credential_id = databricks_storage_credential.this.id
+    role_name     = aws_iam_role.this.name
   }
 
   provisioner "local-exec" {
     command = <<-EOT
       set -euo pipefail
-      CREDS=$(aws sts assume-role --role-arn ${local.uc_assume_role_arn} --role-session-name tf-unity-storage-cred --duration-seconds 900 --output text --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]')
-      AWS_ACCESS_KEY_ID=$(echo "$CREDS" | awk '{print $1}')
-      AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | awk '{print $2}')
-      AWS_SESSION_TOKEN=$(echo "$CREDS" | awk '{print $3}')
-      export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION=${var.aws_region}
+      CREDS=$(aws sts assume-role --role-arn ${local.assume_role_arn} --role-session-name tf-uc-credential-${var.env} --duration-seconds 900 --output text --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]')
+      export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | awk '{print $1}')
+      export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | awk '{print $2}')
+      export AWS_SESSION_TOKEN=$(echo "$CREDS" | awk '{print $3}')
+      export AWS_DEFAULT_REGION=${var.aws_region}
       aws iam update-assume-role-policy \
-        --role-name ${aws_iam_role.unity_catalog_storage.name} \
+        --role-name ${aws_iam_role.this.name} \
         --policy-document '{
           "Version": "2012-10-17",
           "Statement": [
@@ -231,14 +229,14 @@ resource "null_resource" "update_trust_policy" {
               "Effect": "Allow",
               "Principal": {
                 "AWS": [
-                  "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL",
-                  "${aws_iam_role.unity_catalog_storage.arn}"
+                  "${local.uc_master_role_arn}",
+                  "${local.self_role_arn}"
                 ]
               },
               "Action": "sts:AssumeRole",
               "Condition": {
                 "StringEquals": {
-                  "sts:ExternalId": "${try(databricks_storage_credential.unity_catalog.aws_iam_role[0].external_id, databricks_storage_credential.unity_catalog.id)}"
+                  "sts:ExternalId": "${databricks_storage_credential.this.id}"
                 }
               }
             }
@@ -247,28 +245,41 @@ resource "null_resource" "update_trust_policy" {
     EOT
   }
 
-  depends_on = [time_sleep.wait_for_trust_update]
+  depends_on = [time_sleep.wait_for_credential]
 }
 
-resource "time_sleep" "trust_policy_propagation" {
-  depends_on      = [null_resource.update_trust_policy]
-  create_duration = "10s"
-}
-
-# ============================================================================
-# EXTERNAL LOCATION (BUCKET ROOT)
-# ============================================================================
-# Points to the BUCKET ROOT so all catalogs can use it
-resource "databricks_external_location" "unity_catalog_root" {
-  provider        = databricks.workspace
-  name            = "${var.project_name}_${var.env}_unity_catalog_root"
-  url             = "s3://${var.storage_bucket_name}"
-  credential_name = databricks_storage_credential.unity_catalog.name
-  comment         = "Root external location for Unity Catalog storage (shared by all catalogs)"
+resource "databricks_external_location" "this" {
+  count           = var.create_external_location ? 1 : 0
+  provider        = databricks
+  name            = local.external_location_name
+  url             = trimsuffix(local.external_location_url_raw, "/")
+  credential_name = databricks_storage_credential.this.name
   skip_validation = false
 
-  depends_on = [
-    databricks_storage_credential.unity_catalog,
-    time_sleep.trust_policy_propagation
-  ]
+  depends_on = [null_resource.update_trust]
+}
+
+output "storage_credential_name" {
+  description = "Name of the Databricks storage credential"
+  value       = databricks_storage_credential.this.name
+}
+
+output "storage_credential_id" {
+  description = "ID of the Databricks storage credential"
+  value       = databricks_storage_credential.this.id
+}
+
+output "iam_role_arn" {
+  description = "IAM role ARN backing the storage credential"
+  value       = aws_iam_role.this.arn
+}
+
+output "external_location_name" {
+  description = "Name of the external location (if created)"
+  value       = var.create_external_location && length(databricks_external_location.this) > 0 ? databricks_external_location.this[0].name : null
+}
+
+output "external_location_url" {
+  description = "URL of the external location (if created)"
+  value       = var.create_external_location && length(databricks_external_location.this) > 0 ? trimsuffix(databricks_external_location.this[0].url, "/") : null
 }

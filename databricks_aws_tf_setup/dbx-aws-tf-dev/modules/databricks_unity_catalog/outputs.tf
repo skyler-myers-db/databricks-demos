@@ -12,8 +12,3 @@ output "storage_root" {
   description = "Storage root URL for the catalog"
   value       = databricks_catalog.main.storage_root
 }
-
-output "default_schema_name" {
-  description = "Name of the default schema"
-  value       = databricks_schema.default.name
-}
