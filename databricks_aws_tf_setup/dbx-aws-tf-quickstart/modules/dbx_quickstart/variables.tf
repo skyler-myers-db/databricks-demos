@@ -25,3 +25,19 @@ variable "aws_acc_switch_role" {
   default     = "OrganizationAccountAccessRole"
   description = "The name of the role to assume in the new account"
 }
+
+variable "vpc_cidr_block" {
+  type        = string
+  description = "CIDR block for VPC. Use /17-/20 for production, /24 acceptable for dev/demo. Must support minimum /26 subnets for Databricks (64 IPs)."
+  default     = "10.0.0.0/17"
+
+  validation {
+    condition     = can(cidrhost(var.vpc_cidr_block, 0))
+    error_message = "VPC CIDR block must be a valid IPv4 CIDR notation."
+  }
+}
+
+variable "dbx_acc_id" {
+  type        = string
+  description = "The account ID of the Databricks instance. It can be found in the Databricks account console."
+}
